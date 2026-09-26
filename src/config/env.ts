@@ -8,16 +8,27 @@ const EnvSchema = z.object({
     .refine((value) => {
       try {
         const url = new URL(value);
-        return url.protocol === "http:" || url.protocol === "https:";
+        if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+        // Production must use HTTPS; plain HTTP is only allowed for
+        // loopback development origins.
+        if (url.protocol === "http:") {
+          const host = url.hostname.toLowerCase();
+          return host === "localhost" || host === "127.0.0.1" || host === "::1";
+        }
+        return true;
       } catch {
         return false;
       }
-    }, "BETTER_AUTH_URL must be a valid http(s) URL"),
+    }, "BETTER_AUTH_URL must be a valid URL (https in production, http only for localhost)"),
   BETTER_AUTH_SECRET: z
-    .string("BETTER_AUTH_SECRET is required")
+    .string()
+    .min(1, "BETTER_AUTH_SECRET is required")
     .min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
   RESEND_API_KEY: z.string().min(1, "RESEND_API_KEY is required"),
-  RESEND_FROM_EMAIL: z.string().min(1, "RESEND_FROM_EMAIL is required"),
+  RESEND_FROM_EMAIL: z
+    .string()
+    .min(1, "RESEND_FROM_EMAIL is required")
+    .refine((value) => value.includes("@"), "RESEND_FROM_EMAIL must contain an email address"),
 });
 
 export type AppEnv = z.infer<typeof EnvSchema>;

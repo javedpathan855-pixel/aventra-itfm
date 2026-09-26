@@ -31,8 +31,7 @@ const INPUT_VARIANTS: Record<InputVariant, string> = {
     "border-card-border bg-card-background shadow-card",
     "hover:border-border-strong",
     "focus:border-primary focus:bg-[linear-gradient(145deg,rgba(46,65,115,0.10),rgba(20,29,52,0.10))]",
-    "focus:shadow-[0_0_0_1px_rgba(118,143,255,0.18),0_0_22px_rgba(73,104,255,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]",
-    "focus:scale-[1.01]",
+    "focus:shadow-[0_0_0_1px_rgba(118,143,255,0.25),0_0_20px_rgba(74,99,216,0.25),inset_0_1px_0_rgba(255,255,255,0.08)]",
   ),
   filled: cn(
     "border-border bg-surface",
@@ -112,10 +111,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     const renderPasswordToggle = isPasswordType && showPasswordToggle && (
       <button
         type="button"
-        tabIndex={-1}
         onClick={() => setIsPasswordVisible((prev) => !prev)}
-        className="text-muted transition-colors hover:text-foreground focus:outline-none"
+        className="rounded-sm text-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+        aria-pressed={isPasswordVisible}
       >
         {isPasswordVisible ? (
           <EyeOff className={sizeConfig.icon} />

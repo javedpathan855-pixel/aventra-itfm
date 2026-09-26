@@ -17,12 +17,13 @@ export const transitions = {
   },
   authIntroShowcase: {
     duration: DURATIONS.intro,
-    times: [0, 0.5, 1],
+    times: [0, 0.35, 1],
     ease: EASINGS.smooth,
   },
   authIntroFormSection: {
     duration: DURATIONS.slow,
-    delay: 1.75,
+    // Starts after the showcase settles left (showcase intro duration).
+    delay: DURATIONS.intro,
     ease: EASINGS.gentle,
   },
   authFormTransition: {

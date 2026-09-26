@@ -148,16 +148,3 @@ model Invitation {
   @@index([organizationId])
   @@map("invitation")
 }
-
-// Shared rate-limit ledger (Phase 3). One row per attempt; the composite
-// index makes sliding-window counts cheap and cross-instance safe, unlike
-// the single-process in-memory adapter. Rows are pruned lazily on every
-// check — no background job required.
-model RateLimitHit {
-  id        String   @id @default(cuid())
-  key       String
-  createdAt DateTime @default(now())
-
-  @@index([key, createdAt])
-  @@map("rate_limit_hit")
-}

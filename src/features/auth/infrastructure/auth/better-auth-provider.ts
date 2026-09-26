@@ -1,12 +1,21 @@
 import { headers } from "next/headers";
 
 import { getAuth } from "./auth";
-import { normalizeError } from "@/shared/error/app-error";
+import {
+  normalizeAuthError,
+  readBetterAuthCode,
+} from "../error/better-auth-error-map";
 import { getPrisma } from "@/shared/infrastructure/prisma";
+import {
+  normalizeEmail,
+  slugifyOrganizationName,
+} from "../../domain/services/auth-helpers";
 import {
   AuthProvider,
   ProviderUser,
   SignUpInput,
+  SignUpWorkspaceInput,
+  SignUpWorkspaceResult,
 } from "../../repository/auth-provider";
 
 const toProviderUser = (user: {
@@ -21,16 +30,47 @@ const toProviderUser = (user: {
   emailVerified: user.emailVerified,
 });
 
+/** Slug-conflict retries before surfacing CONFLICT (verified provider codes). */
+const WORKSPACE_SLUG_ATTEMPTS = 3;
+
+const isSlugConflict = (error: unknown): boolean => {
+  const code = readBetterAuthCode(error);
+  return code === "ORGANIZATION_ALREADY_EXISTS" || code === "ORGANIZATION_SLUG_ALREADY_TAKEN";
+};
+
+/** Non-security uniqueness jitter for slug retries (not a secret/token). */
+const randomSlugSuffix = (): string => Math.random().toString(36).slice(2, 6);
+
 /**
- * Better Auth implementation of the domain AuthProvider port.
+ * Compensation for organization-stage failure: remove the orphan user so
+ * registration never leaves "user created, organization missing" state.
+ * Account/session rows cascade from the user relation. Logs the message
+ * only — never identifiers, emails, or payloads.
+ */
+const compensateWorkspaceSignup = async (userId: string): Promise<void> => {
+  try {
+    await getPrisma().user.delete({ where: { id: userId } });
+  } catch (rollbackError) {
+    console.error(
+      "[AuthProvider] Workspace signup compensation failed:",
+      rollbackError instanceof Error ? rollbackError.message : "unknown error",
+    );
+  }
+};
+
+/**
+ * Better Auth implementation of the application AuthProvider port.
  * Server-only: forwards request headers for IP/user-agent tracking and
  * relies on the nextCookies plugin to persist session cookies from
- * server actions. Provider failures are normalized to safe AppErrors.
+ * server actions. Single responsibility: adapt Better Auth server behavior
+ * to the port contract. Reads normalize email identically to the
+ * databaseHooks normalization in auth.ts. Failures are normalized to safe
+ * AppErrors via normalizeAuthError (never raw provider shapes).
  */
 const betterAuthProvider: AuthProvider = {
   findUserByEmail: async (email) => {
     const user = await getPrisma().user.findUnique({
-      where: { email },
+      where: { email: normalizeEmail(email) },
       select: { id: true, name: true, email: true, emailVerified: true },
     });
     return user ? toProviderUser(user) : null;
@@ -48,8 +88,53 @@ const betterAuthProvider: AuthProvider = {
       });
       return toProviderUser(result.user);
     } catch (error) {
-      throw normalizeError(error);
+      throw normalizeAuthError(error);
     }
+  },
+
+  signUpWithWorkspace: async (input: SignUpWorkspaceInput): Promise<SignUpWorkspaceResult> => {
+    let createdUser: ProviderUser | null = null;
+    try {
+      const signup = await getAuth().api.signUpEmail({
+        body: {
+          name: input.name,
+          email: input.email,
+          password: input.password,
+        },
+        headers: await headers(),
+      });
+      createdUser = toProviderUser(signup.user);
+    } catch (error) {
+      throw normalizeAuthError(error);
+    }
+
+    // Organization stage (system call): userId without request headers.
+    // Headers must be omitted — the endpoint treats headers-without-session
+    // as an explicit client call and rejects it, and no session exists yet
+    // for an unverified user. The creator receives the provider's "owner"
+    // role (verified: better-auth organization plugin default).
+    const baseSlug = slugifyOrganizationName(input.organizationName);
+    let lastSlugError: unknown = null;
+    for (let attempt = 0; attempt < WORKSPACE_SLUG_ATTEMPTS; attempt += 1) {
+      const slug = attempt === 0 ? baseSlug : `${baseSlug}-${randomSlugSuffix()}`;
+      try {
+        const created = await getAuth().api.createOrganization({
+          body: { name: input.organizationName, slug, userId: createdUser.id },
+        });
+        return {
+          user: createdUser,
+          organization: { id: created.id, name: created.name, slug: created.slug },
+        };
+      } catch (error) {
+        if (!isSlugConflict(error)) {
+          await compensateWorkspaceSignup(createdUser.id);
+          throw normalizeAuthError(error);
+        }
+        lastSlugError = error;
+      }
+    }
+    await compensateWorkspaceSignup(createdUser.id);
+    throw normalizeAuthError(lastSlugError);
   },
 
   signInWithPassword: async (input) => {
@@ -60,7 +145,7 @@ const betterAuthProvider: AuthProvider = {
       });
       return toProviderUser(result.user);
     } catch (error) {
-      throw normalizeError(error);
+      throw normalizeAuthError(error);
     }
   },
 
@@ -68,7 +153,43 @@ const betterAuthProvider: AuthProvider = {
     try {
       await getAuth().api.signOut({ headers: await headers() });
     } catch (error) {
-      throw normalizeError(error);
+      throw normalizeAuthError(error);
+    }
+  },
+
+  sendVerificationOTP: async (email: string) => {
+    try {
+      await getAuth().api.sendVerificationOTP({
+        body: { email, type: "email-verification" },
+        headers: await headers(),
+      });
+    } catch (error) {
+      throw normalizeAuthError(error);
+    }
+  },
+
+  verifyEmailOTP: async (input: { email: string; otp: string }) => {
+    try {
+      const result = await getAuth().api.verifyEmailOTP({
+        body: { email: input.email, otp: input.otp },
+        headers: await headers(),
+      });
+      if (!result.user) {
+        // Provider verified the OTP but omitted the user payload: resolve
+        // through the same normalized, whitelisted read as findUserByEmail.
+        // A missing row here is a verification failure, not a NOT_FOUND leak.
+        const user = await getPrisma().user.findUnique({
+          where: { email: normalizeEmail(input.email) },
+          select: { id: true, name: true, email: true, emailVerified: true },
+        });
+        if (!user) {
+          throw normalizeAuthError({ code: "INVALID_OTP" });
+        }
+        return toProviderUser(user);
+      }
+      return toProviderUser(result.user);
+    } catch (error) {
+      throw normalizeAuthError(error);
     }
   },
 
@@ -79,7 +200,7 @@ const betterAuthProvider: AuthProvider = {
         headers: await headers(),
       });
     } catch (error) {
-      throw normalizeError(error);
+      throw normalizeAuthError(error);
     }
   },
 
@@ -90,7 +211,7 @@ const betterAuthProvider: AuthProvider = {
         headers: await headers(),
       });
     } catch (error) {
-      throw normalizeError(error);
+      throw normalizeAuthError(error);
     }
   },
 };

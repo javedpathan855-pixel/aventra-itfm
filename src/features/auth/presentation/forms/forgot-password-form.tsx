@@ -16,11 +16,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/shared/components/ui/form";
+import { toast } from "@/shared/components/ui/toast";
 import { authFormModeVariants } from "@/shared/animation";
 import {
   forgotPasswordSchema,
   type ForgotPasswordFormData,
 } from "../../domain/schemas/auth.schema";
+import { normalizeEmail } from "../../domain/services/auth-helpers";
+import { authClient } from "../auth-client";
 
 interface ForgotPasswordFormProps {
   onLogin: () => void;
@@ -30,23 +33,64 @@ interface ForgotPasswordFormProps {
 const ForgotPasswordForm = ({ onLogin, onSubmit }: ForgotPasswordFormProps) => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState("");
+  const [isResending, setIsResending] = useState(false);
 
   const form = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: {
       email: "",
     },
+    mode: "onTouched",
   });
 
-  const handleSubmit = form.handleSubmit((data) => {
-    setSubmittedEmail(data.email);
-    setIsSuccess(true);
+  const handleSubmit = form.handleSubmit(async (data) => {
     onSubmit?.(data);
+
+    try {
+      const normalized = normalizeEmail(data.email);
+      setSubmittedEmail(normalized);
+
+      // Better Auth requestPasswordReset API with security-hardened silent response
+      await authClient.requestPasswordReset({
+        email: normalized,
+        redirectTo: "/auth/reset-password",
+      });
+
+      setIsSuccess(true);
+      toast.success("Instructions Dispatched", {
+        description:
+          "If an account exists with this email, password reset instructions have been sent.",
+        duration: 5000,
+      });
+    } catch {
+      // Intentional defense in depth: always show generic confirmation to prevent user enumeration
+      setIsSuccess(true);
+      toast.success("Instructions Dispatched", {
+        description:
+          "If an account exists with this email, password reset instructions have been sent.",
+      });
+    }
   });
 
-  const handleResend = () => {
-    if (submittedEmail) {
-      onSubmit?.({ email: submittedEmail });
+  const handleResend = async () => {
+    if (!submittedEmail || isResending) return;
+    setIsResending(true);
+
+    try {
+      await authClient.requestPasswordReset({
+        email: submittedEmail,
+        redirectTo: "/auth/reset-password",
+      });
+
+      toast.info("Reset Link Resent", {
+        description: `Instructions were re-dispatched to ${submittedEmail}.`,
+      });
+    } catch {
+      toast.info("Reset Link Resent", {
+        description: `Instructions were re-dispatched to ${submittedEmail}.`,
+      });
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -70,7 +114,7 @@ const ForgotPasswordForm = ({ onLogin, onSubmit }: ForgotPasswordFormProps) => {
                   Reset Password
                 </h2>
                 <p className="text-[11px] sm:text-xs text-muted leading-relaxed">
-                  Enter your registered email address and we will send you a secure verification link to reset your account credentials.
+                  Enter your registered work email and we will send you a secure verification link to reset your account credentials.
                 </p>
               </div>
             </div>
@@ -79,6 +123,7 @@ const ForgotPasswordForm = ({ onLogin, onSubmit }: ForgotPasswordFormProps) => {
               <form
                 onSubmit={handleSubmit}
                 className="flex flex-col gap-2.5 sm:gap-3.5 lg:gap-4 w-full"
+                noValidate
               >
                 <FormField
                   control={form.control}
@@ -94,6 +139,7 @@ const ForgotPasswordForm = ({ onLogin, onSubmit }: ForgotPasswordFormProps) => {
                           placeholder="name@company.com"
                           autoComplete="email"
                           startIcon={<Mail className="h-4 w-4" />}
+                          disabled={form.formState.isSubmitting}
                           {...field}
                         />
                       </FormControl>
@@ -106,6 +152,7 @@ const ForgotPasswordForm = ({ onLogin, onSubmit }: ForgotPasswordFormProps) => {
                   variant="primary"
                   className="w-full mt-1 sm:mt-1.5"
                   isLoading={form.formState.isSubmitting}
+                  disabled={form.formState.isSubmitting}
                 >
                   Send Reset Link
                 </Button>
@@ -123,15 +170,15 @@ const ForgotPasswordForm = ({ onLogin, onSubmit }: ForgotPasswordFormProps) => {
                 Check Your Inbox
               </h2>
               <p className="text-[11px] sm:text-xs text-muted leading-relaxed max-w-xs">
-                We have sent password reset instructions to:
+                If an account exists, password reset instructions have been sent to:
               </p>
-              <p className="text-xs sm:text-sm font-semibold text-foreground bg-surface-elevated px-3 py-1 rounded border border-border mt-0.5">
+              <p className="text-xs sm:text-sm font-semibold text-foreground bg-surface-elevated px-3 py-1 rounded border border-border mt-0.5 truncate max-w-xs">
                 {submittedEmail}
               </p>
             </div>
 
             <p className="text-[10px] sm:text-[11px] text-muted-foreground max-w-xs">
-              Didn&apos;t receive the link? Please verify your spam folder or request a new one.
+              Didn&apos;t receive the link? Please verify your spam folder or request a new link.
             </p>
 
             <div className="flex flex-col gap-2 w-full mt-1">
@@ -140,6 +187,8 @@ const ForgotPasswordForm = ({ onLogin, onSubmit }: ForgotPasswordFormProps) => {
                 variant="default"
                 className="w-full gap-2 text-xs"
                 onClick={handleResend}
+                disabled={isResending}
+                isLoading={isResending}
               >
                 <RotateCw className="h-3.5 w-3.5" />
                 <span>Resend email link</span>

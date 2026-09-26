@@ -3,9 +3,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { authShowcaseModeVariants } from "@/shared/animation";
+import type { AuthMode } from "../hooks/use-auth";
 
 interface AuthShowcaseProps {
-  mode: "login" | "forgot" | "register";
+  mode: AuthMode;
 }
 
 interface ShowcaseItem {
@@ -17,33 +18,43 @@ interface ShowcaseItem {
   description: string;
 }
 
-const showcaseData: Record<"login" | "forgot" | "register", ShowcaseItem> = {
+const showcaseData: Record<AuthMode, ShowcaseItem> = {
   login: {
     src: "/icons/lock.png",
-    alt: "Secure Authentication Lock",
+    alt: "Secure login",
     width: 190,
     height: 190,
     title: "Welcome Back",
     description:
-      "Access your IT Financial Management console to track budgets, optimize cloud spend, and monitor organizational costs.",
+      "Good to see you again. Sign in to continue where you left off.",
   },
+
   forgot: {
     src: "/icons/forgot.png",
-    alt: "Account Recovery Key",
+    alt: "Password recovery",
     width: 120,
     height: 120,
-    title: "Reset Your Password",
-    description:
-      "Don't worry, account recovery is quick and secure. We'll send a one-time verification link directly to your registered work email.",
+    title: "Forgot Your Password?",
+    description: "No worries. We'll help you get back into your account.",
   },
+
   register: {
-    src: "/icons/lock.png",
-    alt: "Register Workspace",
+    src: "/icons/register.png",
+    alt: "Create account",
     width: 175,
     height: 175,
-    title: "Create an Account",
+    title: "Create Your Account",
     description:
-      "Join industry leaders in modernizing IT financial governance, resource allocation, and cloud intelligence.",
+      "Set up your account and get started in just a few simple steps.",
+  },
+
+  otp: {
+    src: "/icons/lock.png",
+    alt: "Verification",
+    width: 175,
+    height: 175,
+    title: "Almost There",
+    description: "Enter the code we sent to your email to finish signing in.",
   },
 };
 

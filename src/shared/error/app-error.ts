@@ -1,8 +1,10 @@
 // Canonical application error model for server boundaries.
 //
-// One normalizer turns unknown failures (Better Auth, Prisma, Resend,
-// Zod, network) into safe AppErrors; transport renders the API_RULES.md
-// envelope { success:false, error:{ code, message, details? } }.
+// One normalizer turns unknown failures (Prisma, Resend, Zod, network)
+// into safe AppErrors; transport renders the API_RULES.md envelope
+// { success:false, error:{ code, message, details? } }.
+// Provider-specific (Better Auth) code knowledge lives in
+// features/auth/infrastructure/error/better-auth-error-map.ts — never here.
 // Client logic must branch on `code`, never on human-readable messages.
 
 type ErrorDetails = Record<string, unknown>;
@@ -91,62 +93,12 @@ class AppError extends Error {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-/** Read a Better Auth / better-call APIError code without importing it. */
-const readProviderCode = (error: unknown): string | null => {
-  if (!isRecord(error)) {
-    return null;
-  }
-  const body = error.body;
-  if (isRecord(body) && typeof body.code === "string") {
-    return body.code;
-  }
-  if (typeof error.code === "string") {
-    return error.code;
-  }
-  return null;
-};
-
 /**
- * Map a Better Auth failure to a safe AppError. Enumeration-sensitive
- * codes collapse to generic messages on purpose.
- */
-const fromProviderError = (error: unknown): AppError | null => {
-  const code = readProviderCode(error);
-  if (!code) {
-    return null;
-  }
-
-  switch (code) {
-    case "INVALID_EMAIL_OR_PASSWORD":
-    case "CREDENTIAL_ACCOUNT_NOT_FOUND":
-      return new AppError("INVALID_CREDENTIALS", { cause: error });
-    case "EMAIL_NOT_VERIFIED":
-      return new AppError("EMAIL_NOT_VERIFIED", { cause: error });
-    case "USER_ALREADY_EXISTS":
-    case "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL":
-    case "ORGANIZATION_SLUG_TAKEN":
-      return new AppError("CONFLICT", { cause: error });
-    case "INVALID_PASSWORD":
-      return new AppError("VALIDATION_ERROR", { cause: error });
-    case "INVALID_OTP":
-      return new AppError("VERIFICATION_FAILED", { cause: error });
-    case "OTP_EXPIRED":
-      return new AppError("VERIFICATION_EXPIRED", { cause: error });
-    case "TOO_MANY_ATTEMPTS":
-      return new AppError("VERIFICATION_ATTEMPTS_EXCEEDED", { cause: error });
-    case "TOO_MANY_REQUESTS":
-      return new AppError("RATE_LIMITED", { cause: error });
-    case "INVALID_TOKEN":
-    case "EXPIRED_TOKEN":
-      return new AppError("VERIFICATION_FAILED", { cause: error });
-    default:
-      return null;
-  }
-};
-
-/**
- * Map a Prisma failure (duck-typed on `code`, no client import) to a
- * safe AppError. Raw database internals never reach the client.
+ * Canonical normalizer: unknown server failure -> safe AppError.
+ * AppErrors pass through; database failures map; anything else becomes
+ * INTERNAL_ERROR with the original kept as `cause` (never serialized).
+ * Better Auth failures are mapped by the auth feature normalizer
+ * (normalizeAuthError) before reaching here.
  */
 const fromPrismaError = (error: unknown): AppError | null => {
   if (!isRecord(error) || typeof error.code !== "string") {
@@ -181,11 +133,7 @@ const normalizeError = (error: unknown): AppError => {
   if (error instanceof AppError) {
     return error;
   }
-  return (
-    fromProviderError(error) ??
-    fromPrismaError(error) ??
-    new AppError("INTERNAL_ERROR", { cause: error })
-  );
+  return fromPrismaError(error) ?? new AppError("INTERNAL_ERROR", { cause: error });
 };
 
 interface ErrorEnvelope {
@@ -237,7 +185,6 @@ export {
   ERROR_STATUS,
   SAFE_MESSAGES,
   fromPrismaError,
-  fromProviderError,
   normalizeError,
   toErrorEnvelope,
   toSuccessEnvelope,

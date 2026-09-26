@@ -4,7 +4,15 @@ import { DURATIONS } from "../tokens/durations";
 import { EASINGS } from "../tokens/easings";
 
 /**
- * Keyframe intro animation for the left showcase hero section
+ * Center-stage intro for the showcase column (desktop choreography):
+ * appears at viewport center, holds while fading in, then travels to the
+ * center of the left half. Final state is stable (left: "25%",
+ * opacity: 1) — the showcase remains visible permanently.
+ *
+ * Requires an absolutely positioned half-width host with -translate-x-1/2
+ * (see auth-page-client): left "50%" centers the panel, "25%" docks it to
+ * the left half. Below lg the host is static, so `left` is inert there
+ * and only the opacity phase applies.
  */
 export const authShowcaseIntroVariants: Variants = {
   initial: {
@@ -19,13 +27,16 @@ export const authShowcaseIntroVariants: Variants = {
 };
 
 /**
- * Delayed entrance animation for the right form container section
+ * Delayed entrance for the right form column. Starts only after the
+ * showcase settles left (delay derived from the showcase intro duration
+ * in transitions.authIntroFormSection). Position is static (left: "50%",
+ * right half); only opacity/x animate.
  */
 export const authFormSectionIntroVariants: Variants = {
   initial: {
     left: "50%",
     opacity: 0,
-    x: 40,
+    x: 32,
   },
   animate: {
     left: "50%",
@@ -36,13 +47,13 @@ export const authFormSectionIntroVariants: Variants = {
 };
 
 /**
- * Smooth transition variant for toggling auth showcase views (Login <-> Forgot Password <-> Register)
+ * Smooth transition variant for toggling auth showcase views (Login <-> Forgot Password <-> Register <-> OTP)
  */
 export const authShowcaseModeVariants: Variants = {
   initial: {
     opacity: 0,
-    x: -24,
-    filter: "blur(4px)",
+    x: -20,
+    filter: "blur(3px)",
   },
   animate: {
     opacity: 1,
@@ -55,8 +66,8 @@ export const authShowcaseModeVariants: Variants = {
   },
   exit: {
     opacity: 0,
-    x: 24,
-    filter: "blur(4px)",
+    x: 20,
+    filter: "blur(3px)",
     transition: {
       duration: DURATIONS.fast,
       ease: EASINGS.gentle,
@@ -65,12 +76,12 @@ export const authShowcaseModeVariants: Variants = {
 };
 
 /**
- * Smooth transition variant for auth forms (LoginForm and ForgotPasswordForm)
+ * Smooth transition variant for auth forms (LoginForm, RegisterForm, ForgotPasswordForm, OTPVerificationForm)
  */
 export const authFormModeVariants: Variants = {
   initial: {
     opacity: 0,
-    x: 24,
+    x: 20,
   },
   animate: {
     opacity: 1,
@@ -82,7 +93,7 @@ export const authFormModeVariants: Variants = {
   },
   exit: {
     opacity: 0,
-    x: -24,
+    x: -20,
     transition: {
       duration: DURATIONS.fast,
       ease: EASINGS.gentle,

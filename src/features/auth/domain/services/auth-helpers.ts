@@ -24,4 +24,42 @@ const slugifyOrganizationName = (name: string): string => {
   return base || "organization";
 };
 
-export { MAX_SLUG_BASE_LENGTH, normalizeEmail, slugifyOrganizationName };
+/**
+ * Validate redirect destination to prevent open redirect vulnerabilities.
+ * Only internal relative paths starting with a single '/' are permitted.
+ * Disallows protocol-relative URLs (//), backslashes, and schemes (e.g. javascript:).
+ */
+const getSafeRedirectUrl = (
+  rawUrl: string | null | undefined,
+  fallback = "/dashboard",
+): string => {
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return fallback;
+  }
+
+  const trimmed = rawUrl.trim();
+
+  // Must begin with single slash, not double slash or backslash
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.includes("\\")) {
+    return fallback;
+  }
+
+  // Prevent control characters or scheme injection
+  try {
+    const dummy = new URL(trimmed, "http://localhost");
+    // Ensure the pathname is preserved and matches internal relative pattern
+    if (dummy.origin !== "http://localhost") {
+      return fallback;
+    }
+    return trimmed;
+  } catch {
+    return fallback;
+  }
+};
+
+export {
+  MAX_SLUG_BASE_LENGTH,
+  normalizeEmail,
+  slugifyOrganizationName,
+  getSafeRedirectUrl,
+};

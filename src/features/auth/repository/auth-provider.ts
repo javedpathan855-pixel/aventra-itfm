@@ -17,11 +17,37 @@ interface SignUpInput {
   password: string;
 }
 
+interface SignUpWorkspaceInput {
+  name: string;
+  email: string;
+  password: string;
+  organizationName: string;
+}
+
+interface WorkspaceInfo {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface SignUpWorkspaceResult {
+  user: ProviderUser;
+  organization: WorkspaceInfo;
+}
+
 interface AuthProvider {
   /** Null when no account exists for the normalized email. */
   findUserByEmail(email: string): Promise<ProviderUser | null>;
   /** Create the credential account. Throws CONFLICT when taken. */
   signUpWithPassword(input: SignUpInput): Promise<ProviderUser>;
+  /**
+   * Create credential account + organization + owner membership as one
+   * registration. The creator receives the provider's owner role
+   * ("owner" — never user-selectable). Throws CONFLICT when the email
+   * or organization slug is taken. Implementations must not leave a
+   * user without an organization on organization-stage failure.
+   */
+  signUpWithWorkspace(input: SignUpWorkspaceInput): Promise<SignUpWorkspaceResult>;
 
   /**
    * Password sign-in with session creation.
@@ -33,6 +59,10 @@ interface AuthProvider {
   }): Promise<ProviderUser>;
   /** Invalidate the current session. */
   signOut(): Promise<void>;
+  /** Send or resend email verification OTP. */
+  sendVerificationOTP(email: string): Promise<void>;
+  /** Verify email OTP and complete verification. */
+  verifyEmailOTP(input: { email: string; otp: string }): Promise<ProviderUser>;
   /** Start password reset. Provider stays silent for unknown emails. */
   requestPasswordReset(email: string): Promise<void>;
   /** Consume a single-use reset token with a new password. */
@@ -61,4 +91,12 @@ interface SecurityEventSink {
   ): void;
 }
 
-export type { AuthProvider, ProviderUser, SecurityEventSink, SignUpInput };
+export type {
+  AuthProvider,
+  ProviderUser,
+  SecurityEventSink,
+  SignUpInput,
+  SignUpWorkspaceInput,
+  SignUpWorkspaceResult,
+  WorkspaceInfo,
+};

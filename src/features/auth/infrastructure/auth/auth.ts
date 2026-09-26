@@ -9,24 +9,25 @@
 
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { emailOTP, organization } from "better-auth/plugins";
+import { nextCookies } from "better-auth/next-js";
 
 import { getEnv } from "@/config/env";
 import { getPrisma } from "@/shared/infrastructure/prisma";
 import { normalizeEmail } from "../../domain/services/auth-helpers";
-
-/** 6 numeric digits, per the registration contract. */
-const OTP_LENGTH = 6;
-/** 10-minute verification window (ADR 003). */
-const OTP_EXPIRES_IN_SECONDS = 600;
-/** OTP destroyed after this many wrong guesses (ADR 003). */
-const OTP_MAX_ATTEMPTS = 5;
-/** 7-day sessions with daily refresh (explicit ADR 003). */
-const SESSION_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7;
-const SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 24;
-/** Single-use password-reset links live one hour (ADR 003). */
-const PASSWORD_RESET_EXPIRES_IN_SECONDS = 3600;
-/** Minimum password length, mirrored in RegisterSchema (ADR 003). */
-const MIN_PASSWORD_LENGTH = 8;
+import {
+  MIN_PASSWORD_LENGTH,
+  OTP_EXPIRES_IN_SECONDS,
+  OTP_LENGTH,
+  PASSWORD_RESET_EXPIRES_IN_SECONDS,
+  SESSION_EXPIRES_IN_SECONDS,
+  SESSION_UPDATE_AGE_SECONDS,
+} from "../../domain/constants/auth-constants";
+import {
+  buildPasswordResetEmail,
+  buildVerificationOtpEmail,
+  sendEmail,
+} from "../email/resend-email-service";
 
 type AuthInstance = ReturnType<typeof buildAuth>;
 
@@ -61,6 +62,10 @@ const buildAuth = () => {
       minPasswordLength: MIN_PASSWORD_LENGTH,
       resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRES_IN_SECONDS,
       revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url }) => {
+        const { subject, html, text } = buildPasswordResetEmail(url);
+        await sendEmail({ to: user.email, subject, html, text });
+      },
     },
 
     emailVerification: {
@@ -82,8 +87,23 @@ const buildAuth = () => {
         "/sign-up/email": { window: 300, max: 10 },
         "/email-otp/*": { window: 60, max: 10 },
         "/forget-password": { window: 300, max: 5 },
+        "/reset-password": { window: 300, max: 5 },
       },
     },
+
+    plugins: [
+      nextCookies(),
+      organization(),
+      emailOTP({
+        expiresIn: OTP_EXPIRES_IN_SECONDS,
+        otpLength: OTP_LENGTH,
+        sendVerificationOnSignUp: true,
+        sendVerificationOTP: async ({ email, otp }) => {
+          const { subject, html, text } = buildVerificationOtpEmail(otp);
+          await sendEmail({ to: email, subject, html, text });
+        },
+      }),
+    ],
 
     databaseHooks: {
       user: {
@@ -99,12 +119,3 @@ const buildAuth = () => {
 };
 
 export { getAuth, resetAuthCache };
-export {
-  MIN_PASSWORD_LENGTH,
-  OTP_EXPIRES_IN_SECONDS,
-  OTP_LENGTH,
-  OTP_MAX_ATTEMPTS,
-  PASSWORD_RESET_EXPIRES_IN_SECONDS,
-  SESSION_EXPIRES_IN_SECONDS,
-  SESSION_UPDATE_AGE_SECONDS,
-};
