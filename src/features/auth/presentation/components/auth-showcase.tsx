@@ -56,6 +56,15 @@ const showcaseData: Record<AuthMode, ShowcaseItem> = {
     title: "Almost There",
     description: "Enter the code we sent to your email to finish signing in.",
   },
+
+  reset: {
+    src: "/icons/lock.png",
+    alt: "Set a new password",
+    width: 175,
+    height: 175,
+    title: "Set a New Password",
+    description: "Choose a new password and get back to your account.",
+  },
 };
 
 const AuthShowcase = ({ mode }: AuthShowcaseProps) => {

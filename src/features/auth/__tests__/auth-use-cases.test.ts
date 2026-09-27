@@ -37,6 +37,8 @@ class FakeAuthProvider implements AuthProvider {
   takenSlugs = new Set<string>();
   /** When true, the organization stage throws after the user row exists. */
   failOrganizationStage = false;
+  /** When true, resetPasswordWithToken throws a raw infrastructure error. */
+  failResetStage = false;
 
   async findUserByEmail(email: string): Promise<ProviderUser | null> {
     const found = this.users.get(email);
@@ -99,6 +101,14 @@ class FakeAuthProvider implements AuthProvider {
 
   async signOut(): Promise<void> {}
 
+  async getSession(): Promise<{ userId: string; email: string; activeOrganizationId: string | null } | null> {
+    return null;
+  }
+
+  async setActiveOrganization(): Promise<WorkspaceInfo> {
+    throw new AppError("FORBIDDEN");
+  }
+
   async sendVerificationOTP(email: string): Promise<void> {
     const user = this.users.get(email);
     if (user) {
@@ -131,6 +141,7 @@ class FakeAuthProvider implements AuthProvider {
   }
 
   async resetPasswordWithToken(input: { token: string; newPassword: string }): Promise<void> {
+    if (this.failResetStage) throw new Error("connection pool timeout on pg_pool:5432");
     const entry = Array.from(this.users.values()).find((u) => u.resetToken === input.token);
     if (!entry) throw new AppError("VERIFICATION_FAILED");
     if (entry.resetTokenExpired) throw new AppError("VERIFICATION_EXPIRED");
@@ -542,6 +553,36 @@ describe("Reset password use case", () => {
         { authProvider: auth },
       ),
       (err: unknown) => err instanceof AppError && err.code === "VERIFICATION_EXPIRED",
+    );
+  });
+
+  it("rejects an already-consumed token", async () => {
+    const first = await executeResetPassword(
+      { token: "valid-token", password: "BrandNewPass123", confirmPassword: "BrandNewPass123" },
+      { authProvider: auth },
+    );
+    assert.equal(first.success, true);
+    await assert.rejects(
+      executeResetPassword(
+        { token: "valid-token", password: "AnotherPass123", confirmPassword: "AnotherPass123" },
+        { authProvider: auth },
+      ),
+      (err: unknown) => err instanceof AppError && err.code === "VERIFICATION_FAILED",
+    );
+  });
+
+  it("normalizes provider infrastructure failures without leaking internals", async () => {
+    auth.failResetStage = true;
+    await assert.rejects(
+      executeResetPassword(
+        { token: "valid-token", password: "BrandNewPass123", confirmPassword: "BrandNewPass123" },
+        { authProvider: auth },
+      ),
+      (err: unknown) => {
+        if (!(err instanceof AppError)) return false;
+        const serialized = JSON.stringify({ code: err.code, message: err.message });
+        return err.code === "INTERNAL_ERROR" && !serialized.includes("pg_pool");
+      },
     );
   });
 

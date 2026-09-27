@@ -178,3 +178,63 @@ export const buildPasswordResetEmail = (resetUrl: string): { subject: string; ht
 
   return { subject, html, text };
 };
+
+/**
+ * Render standard branded HTML template for an organization invitation.
+ * The accept URL carries the single-use token; it is rendered into the
+ * message only — never logged or persisted by the mail path.
+ */
+export const buildInvitationEmail = (input: {
+  organizationName: string;
+  role: string;
+  acceptUrl: string;
+  expiresInHours: number;
+}): { subject: string; html: string; text: string } => {
+  const subject = `You've been invited to join ${input.organizationName} on Aventra ITFM`;
+  const text = `You have been invited to join ${input.organizationName} as ${input.role}. Accept within ${input.expiresInHours} hours: ${input.acceptUrl}`;
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #080f1a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #ededed;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #080f1a; padding: 40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 500px; background: #0c1424; border: 1px solid rgba(98, 116, 166, 0.24); border-radius: 16px; overflow: hidden; box-shadow: 0 24px 65px rgba(0, 0, 0, 0.5);">
+          <tr>
+            <td style="padding: 32px 32px 16px 32px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">Aventra ITFM</h1>
+              <p style="margin: 0; font-size: 13px; color: #8c9cb8;">Enterprise IT Financial Management & Cost Optimization</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 32px 24px 32px; text-align: center;">
+              <h2 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 700; color: #ffffff;">Join ${input.organizationName}</h2>
+              <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: #8c9cb8;">
+                You have been invited to join as <strong>${input.role}</strong>. This invitation expires in ${input.expiresInHours} hours and can only be accepted by this email address.
+              </p>
+              <a href="${input.acceptUrl}" style="display: inline-block; background-color: #4a63d8; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 8px; box-shadow: 0 4px 14px rgba(74, 99, 216, 0.4);">
+                Accept Invitation
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 32px 32px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; line-height: 1.5; color: #5a6b88;">
+                If you were not expecting this invitation, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return { subject, html, text };
+};

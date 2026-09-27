@@ -214,6 +214,39 @@ const betterAuthProvider: AuthProvider = {
       throw normalizeAuthError(error);
     }
   },
+
+  getSession: async () => {
+    const result = await getAuth().api.getSession({ headers: await headers() });
+    if (!result || !result.session || !result.user) return null;
+    return {
+      userId: result.user.id,
+      name: result.user.name,
+      email: result.user.email,
+      activeOrganizationId: result.session.activeOrganizationId ?? null,
+    };
+  },
+
+  setActiveOrganization: async (input) => {
+    try {
+      // The provider validates membership itself (non-members are rejected
+      // and the active organization is cleared); callers additionally
+      // verify membership first so unknown ids never reach the provider.
+      const organization = await getAuth().api.setActiveOrganization({
+        body: { organizationId: input.organizationId },
+        headers: await headers(),
+      });
+      if (!organization || typeof organization.id !== "string") {
+        throw normalizeAuthError({ code: "ORGANIZATION_NOT_FOUND" });
+      }
+      return {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+      };
+    } catch (error) {
+      throw normalizeAuthError(error);
+    }
+  },
 };
 
 export { betterAuthProvider };

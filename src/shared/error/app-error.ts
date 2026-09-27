@@ -12,6 +12,7 @@ type ErrorDetails = Record<string, unknown>;
 const AUTH_ERROR_CODES = [
   "VALIDATION_ERROR",
   "INVALID_CREDENTIALS",
+  "UNAUTHENTICATED",
   "EMAIL_NOT_VERIFIED",
   "VERIFICATION_FAILED",
   "VERIFICATION_EXPIRED",
@@ -19,6 +20,7 @@ const AUTH_ERROR_CODES = [
   "RATE_LIMITED",
   "CONFLICT",
   "NOT_FOUND",
+  "ORGANIZATION_NOT_FOUND",
   "FORBIDDEN",
   "DATABASE_ERROR",
   "EMAIL_DELIVERY_ERROR",
@@ -31,6 +33,7 @@ type AuthErrorCode = (typeof AUTH_ERROR_CODES)[number];
 const ERROR_STATUS: Record<AuthErrorCode, number> = {
   VALIDATION_ERROR: 422,
   INVALID_CREDENTIALS: 401,
+  UNAUTHENTICATED: 401,
   EMAIL_NOT_VERIFIED: 403,
   VERIFICATION_FAILED: 400,
   VERIFICATION_EXPIRED: 400,
@@ -38,6 +41,7 @@ const ERROR_STATUS: Record<AuthErrorCode, number> = {
   RATE_LIMITED: 429,
   CONFLICT: 409,
   NOT_FOUND: 404,
+  ORGANIZATION_NOT_FOUND: 404,
   FORBIDDEN: 403,
   DATABASE_ERROR: 503,
   EMAIL_DELIVERY_ERROR: 502,
@@ -48,6 +52,7 @@ const ERROR_STATUS: Record<AuthErrorCode, number> = {
 const SAFE_MESSAGES: Record<AuthErrorCode, string> = {
   VALIDATION_ERROR: "Please check the highlighted fields and try again.",
   INVALID_CREDENTIALS: "The email or password you entered is incorrect.",
+  UNAUTHENTICATED: "Please sign in to continue.",
   EMAIL_NOT_VERIFIED:
     "Please verify your email address before signing in. Check your inbox for the code.",
   VERIFICATION_FAILED: "The verification code is incorrect. Please try again.",
@@ -58,6 +63,7 @@ const SAFE_MESSAGES: Record<AuthErrorCode, string> = {
   RATE_LIMITED: "Too many attempts. Please wait a moment and try again.",
   CONFLICT: "This request conflicts with the current state. Please retry.",
   NOT_FOUND: "The requested resource was not found.",
+  ORGANIZATION_NOT_FOUND: "The requested organization was not found.",
   FORBIDDEN: "You do not have access to this resource.",
   DATABASE_ERROR: "Something went wrong. Please try again in a moment.",
   EMAIL_DELIVERY_ERROR:

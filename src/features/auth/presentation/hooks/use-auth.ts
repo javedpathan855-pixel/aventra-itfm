@@ -3,7 +3,11 @@
 import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export type AuthMode = "login" | "forgot" | "register" | "otp";
+// "reset" is a showcase-only mode for the dedicated /auth/reset-password
+// route (which reads its token from the URL). It is intentionally absent
+// from AUTH_MODES/isAuthMode so ?mode=reset on the main page falls back
+// to login instead of rendering an empty form state.
+export type AuthMode = "login" | "forgot" | "register" | "otp" | "reset";
 
 const AUTH_MODES: readonly AuthMode[] = ["login", "forgot", "register", "otp"];
 

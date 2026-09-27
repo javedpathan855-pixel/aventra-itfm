@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MIN_PASSWORD_LENGTH, OTP_LENGTH } from "../constants/auth-constants";
+import { ORGANIZATION_ROLES } from "../authorization/roles";
 
 export const passwordSchema = z
   .string()
@@ -90,3 +91,18 @@ export const resetPasswordSchema = z
   });
 
 export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
+
+// Canonical member-invitation input. The role is restricted to canonical
+// organization roles here; SUPERADMIN can never arrive (it is not a member
+// of ORGANIZATION_ROLES) and invitation policy (who may invite whom) is
+// enforced separately in domain/authorization/policies.ts.
+export const invitationSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .email("Please enter a valid email address"),
+  role: z.enum(ORGANIZATION_ROLES, { message: "Select a valid organization role." }),
+});
+
+export type InvitationFormData = z.infer<typeof invitationSchema>;

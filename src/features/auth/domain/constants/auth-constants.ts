@@ -13,3 +13,22 @@ export const OTP_MAX_ATTEMPTS = 5; // Client UX lockout threshold (attempts rema
 export const PASSWORD_RESET_EXPIRES_IN_SECONDS = 3600; // 1 hour (ADR 003)
 export const SESSION_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7; // 7 days (ADR 003)
 export const SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 24; // 1 day
+export const INVITATION_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 2; // 48 hours (matches provider default)
+export const INVITATION_TOKEN_BYTES = 32; // 256-bit acceptance tokens (cryptographic random, hashed at rest)
+
+/**
+ * Member/invitation API abuse budgets (administrative operations).
+ * Conservative hourly budgets per authenticated user: invitations and
+ * removals are the most abuse-sensitive; role changes slightly roomier.
+ * Enforced by atomic server-side storage; keys derive from verified
+ * session identity, never client input.
+ */
+export const MEMBER_API_RATE_LIMITS = {
+  inviteMember: { maxHits: 20, windowSeconds: 3600 },
+  updateMemberRole: { maxHits: 30, windowSeconds: 3600 },
+  removeMember: { maxHits: 20, windowSeconds: 3600 },
+  acceptInvitation: { maxHits: 30, windowSeconds: 3600 },
+  cancelInvitation: { maxHits: 30, windowSeconds: 3600 },
+} as const;
+
+export type MemberApiAction = keyof typeof MEMBER_API_RATE_LIMITS;
