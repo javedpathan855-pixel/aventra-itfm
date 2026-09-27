@@ -3,18 +3,10 @@ import cn from "@/shared/utils/cn";
 import { Badge } from "@/shared/components/ui/badge";
 import { DashboardNavItem } from "./dashboard-nav-item";
 import { DashboardFeatureCard } from "./dashboard-feature-card";
-import type {
-  DashboardNavItemViewModel,
-  DashboardOrgViewModel,
-  DashboardOrganizationItem,
-  DashboardUserViewModel,
-} from "../types";
+import type { DashboardNavItemViewModel } from "../types";
 
 interface DashboardSidebarProps {
   navigationItems: DashboardNavItemViewModel[];
-  user?: DashboardUserViewModel;
-  activeOrganization?: DashboardOrgViewModel | null;
-  organizations?: DashboardOrganizationItem[];
   className?: string;
 }
 

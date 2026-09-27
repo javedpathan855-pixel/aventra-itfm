@@ -21,9 +21,10 @@ export const DashboardNavItem = ({
   const pathname = usePathname();
 
   // /dashboard is active only on exact match or subroutes; other routes match prefix
-  const isActive =
-    pathname === href ||
-    (href !== "/dashboard" && pathname.startsWith(`${href}/`));
+  const isActive = pathname
+    ? pathname === href ||
+      (href !== "/dashboard" && pathname.startsWith(`${href}/`))
+    : false;
 
   const isDashboardRoute =
     href === "/dashboard" || href.startsWith("/dashboard");

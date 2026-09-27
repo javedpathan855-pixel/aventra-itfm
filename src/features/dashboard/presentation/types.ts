@@ -36,5 +36,5 @@ export interface DashboardShellProps {
   activeOrganization: DashboardOrgViewModel | null;
   organizations: DashboardOrganizationItem[];
   navigationItems: DashboardNavItemViewModel[];
-  children: ReactNode;
+  children?: ReactNode;
 }

@@ -22,6 +22,22 @@ import {
   formatRoleLabel,
   getRoleBadgeVariant,
 } from "../presentation/utils/role-formatter";
+import { DashboardShell } from "../presentation/components/dashboard-shell";
+import { DashboardSidebar } from "../presentation/components/dashboard-sidebar";
+import { DashboardNotificationBell } from "../presentation/components/dashboard-notification-bell";
+import {
+  AppRouterContext,
+  type AppRouterInstance,
+} from "next/dist/shared/lib/app-router-context.shared-runtime";
+
+const mockRouter = {
+  back: () => {},
+  forward: () => {},
+  push: () => {},
+  replace: () => {},
+  refresh: () => {},
+  prefetch: () => {},
+} as unknown as AppRouterInstance;
 
 describe("Shared UI and Dashboard Presentation Components", () => {
   describe("Shared Breadcrumb Component", () => {
@@ -185,6 +201,81 @@ describe("Shared UI and Dashboard Presentation Components", () => {
       assert.equal(getRoleBadgeVariant(orgItems[0].role), "primary");
       assert.equal(orgItems[1].roleLabel, "User");
       assert.equal(getRoleBadgeVariant(orgItems[1].role), "secondary");
+    });
+  });
+
+  describe("Server DashboardShell and DashboardSidebar Layout", () => {
+    it("renders server-side DashboardShell structure with skip link, main content, and persistent sidebar", () => {
+      const user = {
+        id: "usr-1",
+        email: "test@aventra.io",
+        name: "Test User",
+        platformRole: null,
+        roleLabel: "User",
+      };
+
+      const navigationItems = [{ label: "Dashboard", href: "/dashboard" }];
+
+      const html = renderToStaticMarkup(
+        React.createElement(
+          AppRouterContext.Provider,
+          { value: mockRouter },
+          React.createElement(
+            DashboardShell,
+            {
+              user,
+              activeOrganization: null,
+              organizations: [],
+              navigationItems,
+            },
+            React.createElement("div", { id: "test-child" }, "Dashboard Content"),
+          ),
+        ),
+      );
+
+      // Verify accessible skip link
+      assert.ok(html.includes('href="#main-content"'));
+      assert.ok(html.includes("Skip to main content"));
+
+      // Verify main container
+      assert.ok(html.includes('id="main-content"'));
+      assert.ok(html.includes("Dashboard Content"));
+
+      // Verify sidebar navigation element
+      assert.ok(html.includes('aria-label="Sidebar navigation"'));
+    });
+
+    it("renders DashboardSidebar accepting clean props (navigationItems only)", () => {
+      const navigationItems = [
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Settings", href: "/dashboard/settings" },
+      ];
+
+      const html = renderToStaticMarkup(
+        React.createElement(DashboardSidebar, {
+          navigationItems,
+        }),
+      );
+
+      assert.ok(html.includes("Aventra"));
+      assert.ok(html.includes("ITFM Platform"));
+      assert.ok(html.includes('aria-label="Sidebar navigation"'));
+      assert.ok(html.includes('href="/dashboard"'));
+      assert.ok(html.includes('href="/dashboard/settings"'));
+    });
+  });
+
+  describe("Notification Bell composing shared Dropdown", () => {
+    it("renders notification bell with Dropdown trigger and aria-haspopup='menu'", () => {
+      const html = renderToStaticMarkup(
+        React.createElement(DashboardNotificationBell, null),
+      );
+
+      assert.ok(html.includes('aria-label="View notifications"'));
+      assert.ok(html.includes('aria-haspopup="menu"'));
+      assert.ok(html.includes('aria-expanded="false"'));
+      // Does not render content when closed
+      assert.ok(!html.includes("All caught up!"));
     });
   });
 });

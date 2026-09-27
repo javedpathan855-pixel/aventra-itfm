@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Home, Menu } from "lucide-react";
 import cn from "@/shared/utils/cn";
 import {
@@ -13,6 +14,7 @@ import {
 import { DashboardOrganizationSwitcher } from "./dashboard-organization-switcher";
 import { DashboardUserMenu } from "./dashboard-user-menu";
 import { DashboardNotificationBell } from "./dashboard-notification-bell";
+import { DashboardMobileNav } from "./dashboard-mobile-nav";
 import type {
   DashboardNavItemViewModel,
   DashboardOrgViewModel,
@@ -25,7 +27,6 @@ interface DashboardHeaderProps {
   activeOrganization: DashboardOrgViewModel | null;
   organizations: DashboardOrganizationItem[];
   navigationItems?: DashboardNavItemViewModel[];
-  onToggleNav?: () => void;
   className?: string;
 }
 
@@ -33,9 +34,11 @@ export const DashboardHeader = ({
   user,
   activeOrganization,
   organizations,
-  onToggleNav,
+  navigationItems = [],
   className,
 }: DashboardHeaderProps) => {
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
   return (
     <header
       className={cn(
@@ -43,20 +46,30 @@ export const DashboardHeader = ({
         className,
       )}
     >
-      {/* Left: Hamburger menu & Shared Breadcrumb */}
+      {/* Mobile Drawer Navigation Component */}
+      <DashboardMobileNav
+        user={user}
+        activeOrganization={activeOrganization}
+        organizations={organizations}
+        navigationItems={navigationItems}
+        isOpen={isMobileNavOpen}
+        onClose={() => setIsMobileNavOpen(false)}
+      />
+
+      {/* Left: Mobile hamburger trigger & Shared Breadcrumb */}
       <div className="flex items-center gap-2 sm:gap-3">
         <button
           type="button"
-          aria-label="Toggle navigation menu"
-          onClick={onToggleNav}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:text-foreground hover:bg-surface-elevated/70 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+          aria-label="Open navigation menu"
+          onClick={() => setIsMobileNavOpen(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-muted hover:text-foreground hover:bg-surface-elevated/70 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer lg:hidden"
         >
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
 
-        {/* Vertical divider */}
+        {/* Vertical divider - mobile only */}
         <div
-          className="h-5 w-[1px] bg-border/40 mx-0.5 sm:mx-1"
+          className="h-5 w-[1px] bg-border/40 mx-0.5 sm:mx-1 lg:hidden"
           aria-hidden="true"
         />
 
@@ -85,7 +98,7 @@ export const DashboardHeader = ({
           variant="header"
         />
 
-        {/* Notifications Action */}
+        {/* Notifications Action (composes shared Dropdown) */}
         <DashboardNotificationBell />
 
         {/* Vertical Divider */}
