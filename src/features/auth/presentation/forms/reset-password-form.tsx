@@ -23,8 +23,7 @@ import {
   resetPasswordSchema,
   type ResetPasswordFormData,
 } from "../../domain/schemas/auth.schema";
-import { mapProviderCodeToAppCode } from "../../domain/error/auth-error";
-import { authClient } from "../auth-client";
+import { resetPasswordAction } from "@/app/(auth)/auth/reset-action";
 
 interface ResetPasswordFormProps {
   onBackToLogin: () => void;
@@ -37,6 +36,9 @@ const ResetPasswordForm = ({
 }: ResetPasswordFormProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // Single token ownership: read once at the presentation boundary from the
+  // reset URL. The token is passed to the server action as untrusted input
+  // — never logged, toasted, or embedded in messages.
   const token = searchParams?.get("token") || "";
   const tokenError = searchParams?.get("error");
 
@@ -46,6 +48,7 @@ const ResetPasswordForm = ({
       ? "The password reset token is invalid or has expired. Please request a new one."
       : null,
   );
+  const [linkInvalid, setLinkInvalid] = useState(false);
 
   const form = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -60,33 +63,42 @@ const ResetPasswordForm = ({
     if (!token) {
       const err = "No valid reset token found in URL. Please request a new link.";
       setErrorMessage(err);
+      setLinkInvalid(true);
       toast.error("Invalid Token", { description: err });
       return;
     }
 
     setErrorMessage(null);
+    setLinkInvalid(false);
 
     try {
-      const result = await authClient.resetPassword({
-        newPassword: data.password,
+      // Server boundary: token/password validation, provider invocation,
+      // and error normalization all happen in the use case. The form only
+      // transports validated input and renders safe application codes.
+      const result = await resetPasswordAction({
         token,
+        password: data.password,
+        confirmPassword: data.confirmPassword,
       });
 
-      if (result.error) {
-        const appCode = mapProviderCodeToAppCode(result.error.code ?? null);
+      if (!result.ok) {
         if (
-          appCode === "VERIFICATION_FAILED" ||
-          appCode === "VERIFICATION_EXPIRED"
+          result.code === "VERIFICATION_FAILED" ||
+          result.code === "VERIFICATION_EXPIRED"
         ) {
           const text = "This reset link has expired or has already been used. Please request a new one.";
           setErrorMessage(text);
+          setLinkInvalid(true);
           toast.error("Link Expired", { description: text });
           return;
         }
 
-        const msg = result.error.message || "Failed to reset password. Please try again.";
-        setErrorMessage(msg);
-        toast.error("Reset Failed", { description: msg });
+        const text =
+          result.code === "RATE_LIMITED"
+            ? "Too many reset attempts. Please wait a moment and try again."
+            : "Failed to reset password. Please try again.";
+        setErrorMessage(text);
+        toast.error("Reset Failed", { description: text });
         return;
       }
 
@@ -145,11 +157,32 @@ const ResetPasswordForm = ({
               </div>
             )}
 
+            {linkInvalid && (
+              <div className="flex flex-col gap-2 w-full">
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="w-full text-xs"
+                  onClick={() => router.push("/auth?mode=forgot")}
+                >
+                  Request a New Link
+                </Button>
+              </div>
+            )}
+
             {!token && (
               <div className="flex flex-col gap-2 w-full">
                 <p className="text-xs text-muted-foreground">
-                  The password reset link appears incomplete. Please click the button below to request a new link.
+                  This password reset link is incomplete or no longer available. Request a new reset link to continue.
                 </p>
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="w-full text-xs"
+                  onClick={() => router.push("/auth?mode=forgot")}
+                >
+                  Request a New Reset Link
+                </Button>
                 <Button
                   type="button"
                   variant="default"

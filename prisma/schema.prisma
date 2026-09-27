@@ -21,6 +21,14 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Platform role. Null = standard user. "SUPERADMIN" = platform
+  // administrator. Nullable (not an enum, not defaulted) so normal users
+  // carry no admin marker, and so the column stays compatible with the
+  // Better Auth user model, which ignores unknown columns. Never infer
+  // this from email/domain — set only via explicit server-side bootstrap.
+  // Organization roles live on Member, never here.
+  platformRole  String?
+
   accounts    Account[]
   sessions    Session[]
   members     Member[]
@@ -132,19 +140,36 @@ model Member {
 }
 
 model Invitation {
-  id             String       @id
+  id             String   @id
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   email          String
   role           String
-  status         String       @default("pending")
+  status         String   @default("pending")
   expiresAt      DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
   inviterId      String
-  inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  inviter        User     @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  // SHA-256 hex of the acceptance token. Nullable so pre-token rows stay
+  // valid; acceptance requires a non-null hash. The raw token is emailed
+  // once and never persisted.
+  tokenHash      String?  @unique
 
   @@index([email])
   @@index([organizationId])
   @@map("invitation")
+}
+
+// Atomic rate-limit ledger for custom API throttling. Rows are written
+// inside an advisory-locked transaction (count-then-insert is race-safe);
+// stale rows are pruned lazily. Never read for business logic.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+  @@map("rate_limit_hit")
 }

@@ -7,6 +7,7 @@ import type {
   SignUpInput,
   SignUpWorkspaceInput,
   SignUpWorkspaceResult,
+  WorkspaceInfo,
 } from "../repository/auth-provider";
 import { OTP_MAX_ATTEMPTS } from "../domain/constants/auth-constants";
 
@@ -104,6 +105,14 @@ class FakeAuthProvider implements AuthProvider {
   }
 
   async signOut(): Promise<void> {}
+
+  async getSession(): Promise<{ userId: string; email: string; activeOrganizationId: string | null } | null> {
+    return null;
+  }
+
+  async setActiveOrganization(): Promise<WorkspaceInfo> {
+    throw new AppError("FORBIDDEN");
+  }
 
   async sendVerificationOTP(email: string): Promise<void> {
     const user = this.users.get(email.toLowerCase());

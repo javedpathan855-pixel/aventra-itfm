@@ -70,6 +70,21 @@ interface AuthProvider {
     token: string;
     newPassword: string;
   }): Promise<void>;
+  /**
+   * Current session (server request scope). Null when unauthenticated.
+   * activeOrganizationId is the tenant anchor for authorization.
+   */
+  getSession(): Promise<{
+    userId: string;
+    email: string;
+    activeOrganizationId: string | null;
+  } | null>;
+  /**
+   * Set the caller's active organization. The provider validates
+   * membership itself; callers additionally verify via the authorization
+   * repository so unknown organizations never reach the provider.
+   */
+  setActiveOrganization(input: { organizationId: string }): Promise<WorkspaceInfo>;
 }
 
 /** Security-event sink (implemented by the structured logger). */

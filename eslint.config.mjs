@@ -108,6 +108,20 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // proxy answers session-presence only: no database, no policy engine.
+    files: ["src/proxy.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@prisma/*", "@/generated/*", "**/generated/*", "@/shared/infrastructure/*", "**/shared/infrastructure/*", "@/features/*/infrastructure/*", "**/features/*/infrastructure/*", "@/config/*", "**/config/*"], message: "proxy must stay lightweight: no database, infrastructure, or secrets (AUTH_RULES)." },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;
