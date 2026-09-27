@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Globe2, Clock, Calendar, DollarSign, ShieldAlert, CheckCircle2, AlertCircle } from "lucide-react";
 import { Card } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
+import { Select } from "@/shared/components/ui/select";
 import { Button } from "@/shared/components/ui/button";
 import {
   Form,
@@ -162,20 +163,23 @@ export const OrganizationSettingsTab = ({
                   <FormItem>
                     <FormLabel>Default Operating Currency</FormLabel>
                     <FormControl>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
-                        <select
-                          className="h-10 w-full rounded-md border border-input-border bg-input-background pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-                          disabled={!canEdit || form.formState.isSubmitting}
-                          {...field}
-                        >
-                          {SUPPORTED_CURRENCIES.map((cur) => (
-                            <option key={cur} value={cur}>
-                              {cur} {cur === "INR" ? "(Indian Rupee - ₹)" : cur === "USD" ? "(US Dollar - $)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <Select
+                        options={SUPPORTED_CURRENCIES.map((cur) => ({
+                          value: cur,
+                          label:
+                            cur === "INR"
+                              ? "INR (Indian Rupee - ₹)"
+                              : cur === "USD"
+                                ? "USD (US Dollar - $)"
+                                : cur,
+                        }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        startIcon={<DollarSign className="h-4 w-4" />}
+                        disabled={!canEdit || form.formState.isSubmitting}
+                      />
                     </FormControl>
                     <FormMessage />
                     <p className="text-[11px] text-muted">
@@ -193,20 +197,17 @@ export const OrganizationSettingsTab = ({
                   <FormItem>
                     <FormLabel>Organization Timezone</FormLabel>
                     <FormControl>
-                      <div className="relative">
-                        <Globe2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
-                        <select
-                          className="h-10 w-full rounded-md border border-input-border bg-input-background pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-                          disabled={!canEdit || form.formState.isSubmitting}
-                          {...field}
-                        >
-                          {SUPPORTED_TIMEZONES.map((tz) => (
-                            <option key={tz} value={tz}>
-                              {tz}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <Select
+                        options={SUPPORTED_TIMEZONES.map((tz) => ({ value: tz, label: tz }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        startIcon={<Globe2 className="h-4 w-4" />}
+                        searchable
+                        searchPlaceholder="Search timezones..."
+                        disabled={!canEdit || form.formState.isSubmitting}
+                      />
                     </FormControl>
                     <FormMessage />
                     <p className="text-[11px] text-muted">
@@ -246,20 +247,23 @@ export const OrganizationSettingsTab = ({
                   <FormItem>
                     <FormLabel>Date Display Format</FormLabel>
                     <FormControl>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
-                        <select
-                          className="h-10 w-full rounded-md border border-input-border bg-input-background pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-                          disabled={!canEdit || form.formState.isSubmitting}
-                          {...field}
-                        >
-                          {SUPPORTED_DATE_FORMATS.map((fmt) => (
-                            <option key={fmt} value={fmt}>
-                              {fmt} {fmt === "DD/MM/YYYY" ? "(Standard India / UK)" : fmt === "MM/DD/YYYY" ? "(US Standard)" : "(ISO 8601)"}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <Select
+                        options={SUPPORTED_DATE_FORMATS.map((fmt) => ({
+                          value: fmt,
+                          label:
+                            fmt === "DD/MM/YYYY"
+                              ? "DD/MM/YYYY (Standard India / UK)"
+                              : fmt === "MM/DD/YYYY"
+                                ? "MM/DD/YYYY (US Standard)"
+                                : `${fmt} (ISO 8601)`,
+                        }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        startIcon={<Calendar className="h-4 w-4" />}
+                        disabled={!canEdit || form.formState.isSubmitting}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -274,20 +278,18 @@ export const OrganizationSettingsTab = ({
                   <FormItem>
                     <FormLabel>Time Display Format</FormLabel>
                     <FormControl>
-                      <div className="relative">
-                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none" />
-                        <select
-                          className="h-10 w-full rounded-md border border-input-border bg-input-background pl-9 pr-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-                          disabled={!canEdit || form.formState.isSubmitting}
-                          {...field}
-                        >
-                          {SUPPORTED_TIME_FORMATS.map((tf) => (
-                            <option key={tf} value={tf}>
-                              {tf === "12h" ? "12-hour (e.g. 02:30 PM)" : "24-hour (e.g. 14:30)"}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      <Select
+                        options={SUPPORTED_TIME_FORMATS.map((tf) => ({
+                          value: tf,
+                          label: tf === "12h" ? "12-hour (e.g. 02:30 PM)" : "24-hour (e.g. 14:30)",
+                        }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        startIcon={<Clock className="h-4 w-4" />}
+                        disabled={!canEdit || form.formState.isSubmitting}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -62,7 +62,7 @@ describe("Role model", () => {
 
 describe("Permission matrix", () => {
   it("grants OWNER every organization permission", () => {
-    assert.equal(ROLE_PERMISSIONS.OWNER.length, 11);
+    assert.equal(ROLE_PERMISSIONS.OWNER.length, 19);
     for (const permission of [
       "organization.read",
       "organization.update",
@@ -75,6 +75,14 @@ describe("Permission matrix", () => {
       "invitation.read",
       "invitation.create",
       "invitation.cancel",
+      "location.read",
+      "location.create",
+      "location.update",
+      "location.assign",
+      "department.read",
+      "department.create",
+      "department.update",
+      "department.assign",
     ] as const) {
       assert.equal(hasOrganizationPermission("OWNER", permission), true);
     }
@@ -86,12 +94,21 @@ describe("Permission matrix", () => {
     assert.equal(hasOrganizationPermission("ADMIN", "member.invite"), true);
     assert.equal(hasOrganizationPermission("ADMIN", "member.updateRole"), true);
     assert.equal(hasOrganizationPermission("ADMIN", "member.remove"), true);
-    assert.equal(ROLE_PERMISSIONS.ADMIN.length, 9);
+    assert.equal(hasOrganizationPermission("ADMIN", "location.create"), true);
+    assert.equal(hasOrganizationPermission("ADMIN", "location.assign"), true);
+    assert.equal(hasOrganizationPermission("ADMIN", "department.create"), true);
+    assert.equal(hasOrganizationPermission("ADMIN", "department.assign"), true);
+    assert.equal(ROLE_PERMISSIONS.ADMIN.length, 17);
   });
 
-  it("grants ENGINEER and USER no organization-management permissions", () => {
-    assert.equal(ROLE_PERMISSIONS.ENGINEER.length, 0);
-    assert.equal(ROLE_PERMISSIONS.USER.length, 0);
+  it("grants ENGINEER and USER read-only location/department access", () => {
+    assert.deepEqual([...ROLE_PERMISSIONS.ENGINEER], ["location.read", "department.read"]);
+    assert.deepEqual([...ROLE_PERMISSIONS.USER], ["location.read", "department.read"]);
+    assert.equal(hasOrganizationPermission("ENGINEER", "location.read"), true);
+    assert.equal(hasOrganizationPermission("USER", "department.read"), true);
+    assert.equal(hasOrganizationPermission("ENGINEER", "location.create"), false);
+    assert.equal(hasOrganizationPermission("ENGINEER", "location.assign"), false);
+    assert.equal(hasOrganizationPermission("USER", "department.update"), false);
     assert.equal(hasOrganizationPermission("ENGINEER", "member.read"), false);
     assert.equal(hasOrganizationPermission("USER", "organization.read"), false);
     assert.equal(hasOrganizationPermission(null, "member.read"), false);

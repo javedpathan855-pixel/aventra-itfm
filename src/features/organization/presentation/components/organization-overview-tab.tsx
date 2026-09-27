@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import {
   Building2,
   Calendar,
@@ -20,6 +21,10 @@ import type {
   ProfileCompletionResult,
 } from "../../domain/entities/organization-profile";
 import { maskTaxIdentifier } from "../../domain/services/tax-validator";
+import {
+  orgPageStaggerVariants,
+  orgSectionItemVariants,
+} from "@/shared/animation";
 
 interface OrganizationOverviewTabProps {
   profile: OrganizationProfileEntity;
@@ -59,9 +64,15 @@ export const OrganizationOverviewTab = ({
   });
 
   return (
-    <div className="flex flex-col gap-6">
+    <motion.div
+      variants={orgPageStaggerVariants}
+      initial="initial"
+      animate="animate"
+      className="flex flex-col gap-6"
+    >
       {/* Identity Card */}
-      <Card className="p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 border-border/60">
+      <motion.div variants={orgSectionItemVariants}>
+        <Card className="p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 border-border/60">
         <div className="flex items-center gap-4">
           <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-surface-muted border border-border/60 overflow-hidden shadow-xs">
             {profile.logo ? (
@@ -127,12 +138,14 @@ export const OrganizationOverviewTab = ({
             Update Logo
           </Button>
         </div>
-      </Card>
+        </Card>
+      </motion.div>
 
       {/* Profile Details Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Contact Information */}
-        <Card className="p-4 sm:p-5 flex flex-col gap-3.5 border-border/50">
+        <motion.div variants={orgSectionItemVariants} className="h-full">
+          <Card className="p-4 sm:p-5 flex flex-col gap-3.5 border-border/50 h-full">
           <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
             <div className="flex items-center gap-2 text-foreground font-semibold text-xs">
               <Mail className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -179,9 +192,11 @@ export const OrganizationOverviewTab = ({
             </div>
           </div>
         </Card>
+        </motion.div>
 
         {/* Legal & Tax Information */}
-        <Card className="p-4 sm:p-5 flex flex-col gap-3.5 border-border/50">
+        <motion.div variants={orgSectionItemVariants} className="h-full">
+          <Card className="p-4 sm:p-5 flex flex-col gap-3.5 border-border/50 h-full">
           <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
             <div className="flex items-center gap-2 text-foreground font-semibold text-xs">
               <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -219,9 +234,11 @@ export const OrganizationOverviewTab = ({
             </div>
           </div>
         </Card>
+        </motion.div>
 
         {/* Primary Address */}
-        <Card className="p-4 sm:p-5 flex flex-col gap-3.5 border-border/50 md:col-span-2 lg:col-span-1">
+        <motion.div variants={orgSectionItemVariants} className="h-full md:col-span-2 lg:col-span-1">
+          <Card className="p-4 sm:p-5 flex flex-col gap-3.5 border-border/50 h-full">
           <div className="flex items-center justify-between border-b border-border/30 pb-2.5">
             <div className="flex items-center gap-2 text-foreground font-semibold text-xs">
               <MapPin className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -272,11 +289,13 @@ export const OrganizationOverviewTab = ({
             </div>
           )}
         </Card>
+        </motion.div>
       </div>
 
       {/* Description / Mission */}
       {profile.description && (
-        <Card className="p-5 flex flex-col gap-2 border-border/50">
+        <motion.div variants={orgSectionItemVariants}>
+          <Card className="p-5 flex flex-col gap-2 border-border/50">
           <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">
             About Organization
           </h3>
@@ -284,10 +303,14 @@ export const OrganizationOverviewTab = ({
             {profile.description}
           </p>
         </Card>
+        </motion.div>
       )}
 
       {/* Operational Metadata Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-lg border border-border/40 bg-surface/30 text-xs text-muted">
+      <motion.div
+        variants={orgSectionItemVariants}
+        className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-lg border border-border/40 bg-surface/30 text-xs text-muted"
+      >
         <div className="flex items-center gap-4 flex-wrap">
           <span className="flex items-center gap-1.5">
             <Tag className="h-3.5 w-3.5 text-primary" />
@@ -313,7 +336,7 @@ export const OrganizationOverviewTab = ({
         >
           Regional Settings
         </Button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

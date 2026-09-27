@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, type ChangeEvent, type DragEvent } from "react";
+import { motion } from "framer-motion";
 import Image from "next/image";
 import { UploadCloud, Trash2, Image as ImageIcon, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 import { Card } from "@/shared/components/ui/card";
@@ -18,6 +19,10 @@ import type {
   OrganizationProfileEntity,
   ProfileCompletionResult,
 } from "../../domain/entities/organization-profile";
+import {
+  orgPageStaggerVariants,
+  orgSectionItemVariants,
+} from "@/shared/animation";
 
 interface OrganizationBrandingTabProps {
   profile: OrganizationProfileEntity;
@@ -164,7 +169,12 @@ export const OrganizationBrandingTab = ({
   const displayLogo = selectedPreview || currentLogo;
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      variants={orgPageStaggerVariants}
+      initial="initial"
+      animate="animate"
+      className="space-y-6"
+    >
       <Card className="p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-border">
           <div>
@@ -196,7 +206,10 @@ export const OrganizationBrandingTab = ({
 
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left: Preview area */}
-          <div className="lg:col-span-5 flex flex-col items-center justify-center p-8 rounded-lg border border-border bg-surface-elevated/40 text-center">
+          <motion.div
+            variants={orgSectionItemVariants}
+            className="lg:col-span-5 flex flex-col items-center justify-center p-8 rounded-lg border border-border bg-surface-elevated/40 text-center"
+          >
             <span className="text-xs font-semibold uppercase tracking-wider text-muted mb-4">
               {selectedPreview ? "New Logo Preview" : currentLogo ? "Active Brand Logo" : "No Logo Uploaded"}
             </span>
@@ -246,10 +259,13 @@ export const OrganizationBrandingTab = ({
                 </Button>
               </div>
             )}
-          </div>
+          </motion.div>
 
           {/* Right: Upload controls and guidelines */}
-          <div className="lg:col-span-7 space-y-6">
+          <motion.div
+            variants={orgSectionItemVariants}
+            className="lg:col-span-7 space-y-6"
+          >
             <input
               ref={fileInputRef}
               type="file"
@@ -312,9 +328,9 @@ export const OrganizationBrandingTab = ({
                 </li>
               </ul>
             </div>
-          </div>
+          </motion.div>
         </div>
       </Card>
-    </div>
+    </motion.div>
   );
 };

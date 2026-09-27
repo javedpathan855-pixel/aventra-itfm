@@ -28,7 +28,7 @@ export const executeUpdateOrganizationProfile = async (
   }
 
   try {
-    const context = await resolveAuthorizationContext({}, deps);
+    const context = await resolveAuthorizationContext({ autoSelectDefault: true }, deps);
     requirePermission(context, "organization.update");
 
     if (!context.organizationId) {

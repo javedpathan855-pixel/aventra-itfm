@@ -2,6 +2,7 @@ import Link from "next/link";
 import cn from "@/shared/utils/cn";
 import { Badge } from "@/shared/components/ui/badge";
 import { DashboardNavItem } from "./dashboard-nav-item";
+import { DashboardNavGroup } from "./dashboard-nav-group";
 import { DashboardFeatureCard } from "./dashboard-feature-card";
 import type { DashboardNavItemViewModel } from "../types";
 
@@ -9,6 +10,23 @@ interface DashboardSidebarProps {
   navigationItems: DashboardNavItemViewModel[];
   className?: string;
 }
+
+/**
+ * Renders a flat leaf link or an expandable parent group. Grouping is
+ * data-driven (entries with children), never hardcoded to specific URLs.
+ */
+const renderNavEntry = (item: DashboardNavItemViewModel) => {
+  if (item.children && item.children.length > 0) {
+    return (
+      <DashboardNavGroup
+        key={item.href || item.label}
+        label={item.label}
+        items={item.children ?? []}
+      />
+    );
+  }
+  return <DashboardNavItem key={item.href} href={item.href} label={item.label} />;
+};
 
 export const DashboardSidebar = ({
   navigationItems,
@@ -18,7 +36,7 @@ export const DashboardSidebar = ({
     <aside
       aria-label="Sidebar navigation"
       className={cn(
-        "hidden lg:flex h-screen w-64 shrink-0 flex-col bg-background sticky top-0 select-none z-30 border-r border-border/40",
+        "hidden lg:flex h-screen w-64 shrink-0 flex-col bg-background sticky top-0 select-none z-30",
         className,
       )}
     >
@@ -60,13 +78,7 @@ export const DashboardSidebar = ({
               Main
             </div>
             <ul className="space-y-1">
-              {navigationItems.map((item) => (
-                <DashboardNavItem
-                  key={item.href}
-                  href={item.href}
-                  label={item.label}
-                />
-              ))}
+              {navigationItems.map((item) => renderNavEntry(item))}
             </ul>
           </div>
         </div>

@@ -1,10 +1,12 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MapPin, X } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import { Select } from "@/shared/components/ui/select";
 import Checkbox from "@/shared/components/ui/checkbox";
 import {
   Form,
@@ -19,6 +21,10 @@ import {
   type OrganizationAddressInput,
   type OrganizationAddressFormInput,
 } from "../../domain/schemas/organization.schema";
+import {
+  orgDialogBackdropVariants,
+  orgDialogPanelVariants,
+} from "@/shared/animation";
 import { ADDRESS_TYPES, ADDRESS_TYPE_LABELS } from "../../domain/constants/organization-constants";
 import type { OrganizationAddressEntity } from "../../domain/entities/organization-profile";
 
@@ -57,21 +63,31 @@ export const AddressDialog = ({
     mode: "onTouched",
   });
 
-  if (!isOpen) return null;
-
   const handleSubmit = form.handleSubmit(async (values) => {
     await onSave(values);
     form.reset();
   });
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="address-dialog-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs overflow-y-auto"
-    >
-      <div className="relative w-full max-w-lg rounded-xl border border-card-border bg-card-background shadow-dropdown p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150 my-8">
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          variants={orgDialogBackdropVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xs overflow-y-auto"
+        >
+          <motion.div
+            variants={orgDialogPanelVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="address-dialog-title"
+            className="relative w-full max-w-lg rounded-xl border border-card-border bg-card-background shadow-dropdown p-6 flex flex-col gap-4 my-8"
+          >
         <div className="flex items-center justify-between border-b border-border/40 pb-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-muted text-primary">
@@ -100,18 +116,17 @@ export const AddressDialog = ({
                   <FormItem>
                     <FormLabel className="text-xs">Address Type</FormLabel>
                     <FormControl>
-                      <select
-                        className="w-full h-10 px-3 rounded-md border border-border bg-input-background text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25"
-                        disabled={isSaving}
+                      <Select
+                        options={ADDRESS_TYPES.map((type) => ({
+                          value: type,
+                          label: ADDRESS_TYPE_LABELS[type],
+                        }))}
                         value={field.value}
                         onChange={field.onChange}
-                      >
-                        {ADDRESS_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {ADDRESS_TYPE_LABELS[type]}
-                          </option>
-                        ))}
-                      </select>
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        disabled={isSaving}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -298,7 +313,9 @@ export const AddressDialog = ({
             </div>
           </form>
         </Form>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

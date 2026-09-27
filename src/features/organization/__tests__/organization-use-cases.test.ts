@@ -241,8 +241,7 @@ class FakeOrganizationRepository implements OrganizationRepository {
     return def;
   }
 
-  async updateSettings(organizationId: string, input: OrganizationSettingsInput): Promise<OrganizationSettingsEntity> {
-    const newSettings: OrganizationSettingsEntity = {
+  async updateSettings(organizationId: string, input: OrganizationSettingsInput): Promise<OrganizationSettingsEntity> {    const newSettings: OrganizationSettingsEntity = {
       id: `set_${organizationId}`,
       organizationId,
       ...input,
@@ -260,6 +259,24 @@ class FakeOrganizationRepository implements OrganizationRepository {
     this.profiles.set(organizationId, updated);
     return updated;
   }
+
+  // Location/department port surface is covered by dedicated fakes in
+  // organization-locations-departments.test.ts; these stubs keep this
+  // legacy fake structurally complete without duplicating behavior.
+  async listLocations(): Promise<never> { throw new Error("not implemented"); }
+  async getLocationDetail(): Promise<never> { throw new Error("not implemented"); }
+  async createLocation(): Promise<never> { throw new Error("not implemented"); }
+  async updateLocation(): Promise<never> { throw new Error("not implemented"); }
+  async setLocationActive(): Promise<never> { throw new Error("not implemented"); }
+  async setDefaultLocation(): Promise<never> { throw new Error("not implemented"); }
+  async listDepartments(): Promise<never> { throw new Error("not implemented"); }
+  async getDepartmentDetail(): Promise<never> { throw new Error("not implemented"); }
+  async createDepartment(): Promise<never> { throw new Error("not implemented"); }
+  async updateDepartment(): Promise<never> { throw new Error("not implemented"); }
+  async updateDepartmentWithAssignments(): Promise<never> { throw new Error("not implemented"); }
+  async setDepartmentActive(): Promise<never> { throw new Error("not implemented"); }
+  async syncAssignments(): Promise<never> { throw new Error("not implemented"); }
+  async removeAssignment(): Promise<never> { throw new Error("not implemented"); }
 }
 
 describe("Organization Application Layer — Use Cases", () => {
@@ -611,6 +628,158 @@ describe("Organization Application Layer — Use Cases", () => {
 
       const res = await executeRemoveOrganizationLogo({}, deps);
       assert.equal(res.profile.logo, null);
+    });
+  });
+
+  describe("Null active-organization sessions (OWNER update regression)", () => {
+    // Sessions without activeOrganizationId are legitimate (fresh logins).
+    // Mutations must fall back to the caller's membership via
+    // autoSelectDefault instead of rejecting with a permission error.
+    // makeDeps(user, null) reproduces the reported OWNER bug:
+    // "You don't have permission to access this organization."
+    it("lets an OWNER with no active organization update general profile fields", async () => {
+      const deps = makeDeps(userOwner.id, null);
+      const result = await executeUpdateOrganizationProfile(
+        { name: "Alpha Corp Global" },
+        deps,
+      );
+      assert.equal(result.profile.name, "Alpha Corp Global");
+      assert.ok(
+        auditLog.events.some(
+          (event) =>
+            event.type === "ORGANIZATION_PROFILE_UPDATED" &&
+            event.organizationId === activeOrg.id,
+        ),
+      );
+    });
+
+    it("lets an OWNER with no active organization update legal and tax details", async () => {
+      const deps = makeDeps(userOwner.id, null);
+      const result = await executeUpdateOrganizationLegal(
+        {
+          gstin: "27ABCDE1234F1Z5",
+          pan: "ABCDE1234F",
+          cin: "U12345MH2020PTC123456",
+        },
+        deps,
+      );
+      assert.equal(result.profile.gstin, "27ABCDE1234F1Z5");
+    });
+
+    it("lets an OWNER with no active organization update settings", async () => {
+      const deps = makeDeps(userOwner.id, null);
+      const result = await executeUpdateOrganizationSettings(
+        {
+          displayName: "Alpha Global",
+          timezone: "Asia/Kolkata",
+          locale: "en-IN",
+          dateFormat: "DD/MM/YYYY",
+          timeFormat: "24h",
+          currency: "INR",
+        },
+        deps,
+      );
+      assert.equal(result.settings.displayName, "Alpha Global");
+    });
+
+    it("lets an OWNER with no active organization manage addresses", async () => {
+      const deps = makeDeps(userOwner.id, null);
+      const created = await executeCreateAddress(
+        {
+          type: "registered",
+          addressLine1: "123 Tech Park",
+          city: "Mumbai",
+          state: "Maharashtra",
+          country: "India",
+          postalCode: "400001",
+        },
+        deps,
+      );
+      assert.equal(created.address.city, "Mumbai");
+    });
+
+    it("lets an OWNER with no active organization manage the logo", async () => {
+      const deps = makeDeps(userOwner.id, null);
+      const result = await executeUploadOrganizationLogo(
+        { dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA" },
+        deps,
+      );
+      assert.equal(
+        result.profile.logo,
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA",
+      );
+    });
+
+    it("retains ADMIN update behavior with no active organization", async () => {
+      authRepo.memberships.push({
+        id: "mem_admin_1",
+        userId: userMember.id,
+        organizationId: activeOrg.id,
+        role: "ADMIN",
+      });
+      const deps = makeDeps(userMember.id, null);
+      const result = await executeUpdateOrganizationProfile(
+        { name: "Alpha Admin Rename" },
+        deps,
+      );
+      assert.equal(result.profile.name, "Alpha Admin Rename");
+    });
+
+    it("keeps ENGINEER and USER restricted with no active organization", async () => {
+      authRepo.memberships.push({
+        id: "mem_user_1",
+        userId: userMember.id,
+        organizationId: activeOrg.id,
+        role: "USER",
+      });
+      const deps = makeDeps(userMember.id, null);
+      await assert.rejects(
+        () => executeUpdateOrganizationProfile({ name: "Hijacked" }, deps),
+        (err: AppError) => err.code === "FORBIDDEN",
+      );
+    });
+
+    it("rejects unauthenticated update requests", async () => {
+      const deps = {
+        ...makeDeps(userOwner.id, null),
+        getSession: async () => null,
+      };
+      await assert.rejects(
+        () => executeUpdateOrganizationProfile({ name: "Hijacked" }, deps),
+        (err: AppError) => err.code === "UNAUTHENTICATED",
+      );
+    });
+
+    it("denies updates for users without membership in any organization", async () => {
+      const deps = makeDeps("usr_stranger", null);
+      await assert.rejects(
+        () => executeUpdateOrganizationProfile({ name: "Hijacked" }, deps),
+        (err: AppError) => err.code === "FORBIDDEN",
+      );
+    });
+
+    it("still rejects invalid input with a null active organization", async () => {
+      const deps = makeDeps(userOwner.id, null);
+      await assert.rejects(
+        () => executeUpdateOrganizationProfile({ name: "A" }, deps),
+        (err: AppError) => err.code === "VALIDATION_ERROR",
+      );
+    });
+
+    it("persists update results instead of returning stale data", async () => {
+      const deps = makeDeps(userOwner.id, null);
+      const first = await executeUpdateOrganizationProfile(
+        { name: "First Rename" },
+        deps,
+      );
+      assert.equal(first.profile.name, "First Rename");
+      const second = await executeUpdateOrganizationProfile(
+        { name: "Second Rename" },
+        deps,
+      );
+      assert.equal(second.profile.name, "Second Rename");
+      const stored = await orgRepo.getProfile(activeOrg.id);
+      assert.equal(stored?.name, "Second Rename");
     });
   });
 });

@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, Calendar, Globe, Mail, Phone } from "lucide-react";
 import { Card } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
+import { Select } from "@/shared/components/ui/select";
 import { Button } from "@/shared/components/ui/button";
 import {
   Form,
@@ -154,19 +155,17 @@ export const OrganizationGeneralTab = ({
                 <FormItem>
                   <FormLabel className="text-xs">Organization Type</FormLabel>
                   <FormControl>
-                    <select
-                      className="w-full h-10 px-3 rounded-md border border-border bg-input-background text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/25 disabled:opacity-50"
-                      disabled={form.formState.isSubmitting}
-                      value={field.value || ""}
+                    <Select
+                      options={[
+                        { value: "", label: "Select organization structure..." },
+                        ...ORGANIZATION_TYPES.map((type) => ({ value: type, label: type })),
+                      ]}
+                      value={field.value ?? ""}
                       onChange={field.onChange}
-                    >
-                      <option value="">Select organization structure...</option>
-                      {ORGANIZATION_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      disabled={form.formState.isSubmitting}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

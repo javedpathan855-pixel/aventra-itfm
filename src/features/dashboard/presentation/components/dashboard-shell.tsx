@@ -13,6 +13,7 @@ export const DashboardShell = ({
   organizations,
   navigationItems,
   children,
+  contentClassName,
 }: DashboardShellProps) => {
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground antialiased">
@@ -41,7 +42,7 @@ export const DashboardShell = ({
           tabIndex={-1}
           className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 outline-none"
         >
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+          <div className={contentClassName ?? "mx-auto w-full max-w-7xl"}>{children}</div>
         </main>
       </div>
     </div>

@@ -1,7 +1,7 @@
 # Aventra ITFM Organization Management Architecture
 
 ## Mission & Scope
-The Organization Management Module provides comprehensive enterprise profile administration, multiple address management, Indian tax/corporate identification (GSTIN, PAN, CIN), branding/logo management, regional settings, and role-scoped team management within strict Clean Architecture boundaries and tenant isolation.
+The Organization Management Module provides comprehensive enterprise profile administration, multiple address management, Indian tax/corporate identification (GSTIN, PAN, CIN), branding/logo management, regional settings, operational locations, departments with location assignments, and role-scoped team management within strict Clean Architecture boundaries and tenant isolation.
 
 ---
 
@@ -51,6 +51,70 @@ Supports multiple addresses per tenant:
 - `timeFormat`: Time format (`12h` or `24h`).
 - `currency`: Base operating currency (default `INR`).
 
+### 4. `Location` Model
+Operational sites belonging to exactly one organization (distinct from
+`OrganizationAddress`, which records legal/registered addresses):
+- `name`, unique-per-organization `code` (stored trimmed uppercase).
+- Optional `description`, `email`, `phone`, full address fields, `timezone`.
+- `isDefault`: at most one per organization; transitions run atomically.
+  Deactivating the default clears default status explicitly — no silent
+  replacement is ever chosen.
+- `isActive`: soft deactivation preserves the row and all assignments.
+- New assignments require an active location; existing assignments survive
+  deactivation and are restored by reactivation.
+
+### 5. `Department` Model
+Organizational units belonging to exactly one organization:
+- `name`, unique-per-organization `code` (stored trimmed uppercase),
+  optional `description`.
+- `isActive`: soft deactivation preserves the row and all assignments.
+- Departments may exist with zero assigned locations.
+
+### 6. `LocationDepartment` Model
+Many-to-many join between locations and departments of the same
+organization (`organizationId` denormalized for tenant isolation):
+- `@@unique([locationId, departmentId])` rejects duplicate assignments.
+- Removing a row never deletes either side. Cross-organization pairs are
+  rejected at the application boundary before any write.
+
+---
+
+## Locations & Departments — Routes & Operations
+
+- Routes: `/organization/locations`, `/organization/locations/[locationId]`,
+  `/organization/departments`, `/organization/departments/[departmentId]`
+  (server components under the existing organization layout; create/edit
+  via dialogs following the address-dialog pattern).
+- Server actions in `src/app/organization/actions.ts` wire the same
+  `getDeps()` composition boundary; mutations revalidate
+  `/organization/locations`, `/organization/departments`, and `/organization`.
+- Listing is server-side: search (name/code/city), active/inactive and
+  default filters, sorting, and pagination run in Prisma queries scoped by
+  `organizationId`, with tenant-scoped counts.
+- Permissions: `location.read/create/update/assign` and
+  `department.read/create/update/assign`. `OWNER` and `ADMIN` manage fully;
+  `ENGINEER` and `USER` hold read-only access. Navigation entries are
+  permission-filtered; every operation re-authorizes server-side.
+
+---
+
+## Shared Select Component & Form Controls
+
+- All single-select interactions in the Organization module use the shared
+  `Select` (`src/shared/components/ui/select.tsx`): list filters (status,
+  sort), address type, business type, settings (currency, timezone with
+  search, date/time formats), and member role selection. Native `<select>`
+  elements and checkbox/multi-select assignment interfaces are intentionally
+  left untouched where they are not single-selects.
+- `Select` is presentation-only (controlled/uncontrolled, single selection,
+  optional search, sm/md/lg sizes, error/helper text, full keyboard support
+  via a combobox/listbox pattern). It carries no business logic: values flow
+  as plain strings into the existing React Hook Form + Zod pipelines, so
+  server actions receive byte-identical payloads to the native controls.
+- Component tests (`renderToStaticMarkup` + pure interaction helpers) live
+  beside it; integration coverage renders the real list views, dialogs, and
+  settings tab to assert wiring, defaults, and role gating.
+
 ---
 
 ## Tenant Isolation & Security
@@ -70,6 +134,11 @@ Supports multiple addresses per tenant:
   - `ORGANIZATION_ADDRESS_CHANGED`
   - `ORGANIZATION_SETTINGS_UPDATED`
   - `ORGANIZATION_LOGO_CHANGED`
+  - `LOCATION_CREATED`, `LOCATION_UPDATED`, `LOCATION_ACTIVATED`,
+    `LOCATION_DEACTIVATED`, `LOCATION_DEFAULT_CHANGED`
+  - `DEPARTMENT_CREATED`, `DEPARTMENT_UPDATED`, `DEPARTMENT_ACTIVATED`,
+    `DEPARTMENT_DEACTIVATED`
+  - `LOCATION_DEPARTMENT_ASSIGNED`, `LOCATION_DEPARTMENT_UNASSIGNED`
 
 ---
 

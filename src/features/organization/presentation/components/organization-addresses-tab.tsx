@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { Check, MapPin, Plus, Star, Trash2 } from "lucide-react";
 import { Card } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
@@ -18,6 +19,10 @@ import type {
 } from "../../domain/entities/organization-profile";
 import { ADDRESS_TYPE_LABELS } from "../../domain/constants/organization-constants";
 import type { OrganizationAddressInput } from "../../domain/schemas/organization.schema";
+import {
+  orgPageStaggerVariants,
+  orgSectionItemVariants,
+} from "@/shared/animation";
 
 interface OrganizationAddressesTabProps {
   addresses: OrganizationAddressEntity[];
@@ -99,9 +104,17 @@ export const OrganizationAddressesTab = ({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <motion.div
+      variants={orgPageStaggerVariants}
+      initial="initial"
+      animate="animate"
+      className="flex flex-col gap-6"
+    >
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
+      <motion.div
+        variants={orgSectionItemVariants}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4"
+      >
         <div>
           <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
             Organization Addresses ({addresses.length})
@@ -121,11 +134,12 @@ export const OrganizationAddressesTab = ({
           <Plus className="h-4 w-4" />
           <span>Add Address</span>
         </Button>
-      </div>
+      </motion.div>
 
       {/* Address Cards List */}
       {addresses.length === 0 ? (
-        <Card className="p-8 text-center flex flex-col items-center justify-center gap-3 border-dashed border-border/60">
+        <motion.div variants={orgSectionItemVariants}>
+          <Card className="p-8 text-center flex flex-col items-center justify-center gap-3 border-dashed border-border/60">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-muted border border-border/40 text-muted">
             <MapPin className="h-6 w-6" aria-hidden="true" />
           </div>
@@ -140,13 +154,12 @@ export const OrganizationAddressesTab = ({
             Add Registered Office
           </Button>
         </Card>
+        </motion.div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {addresses.map((address) => (
-            <Card
-              key={address.id}
-              className="p-5 flex flex-col justify-between gap-4 border-border/50 hover:border-border-strong transition-colors"
-            >
+            <motion.div key={address.id} variants={orgSectionItemVariants} className="h-full">
+              <Card className="p-5 flex flex-col justify-between gap-4 border-border/50 hover:border-border-strong transition-colors h-full">
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -221,7 +234,8 @@ export const OrganizationAddressesTab = ({
                   </Button>
                 </div>
               </div>
-            </Card>
+              </Card>
+            </motion.div>
           ))}
         </div>
       )}
@@ -234,6 +248,6 @@ export const OrganizationAddressesTab = ({
         initialData={editingAddress}
         isSaving={isSaving}
       />
-    </div>
+    </motion.div>
   );
 };

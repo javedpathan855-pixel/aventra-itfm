@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -18,6 +19,7 @@ import { Badge } from "@/shared/components/ui/badge";
 import { Avatar } from "@/shared/components/ui/avatar";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import { Select } from "@/shared/components/ui/select";
 import {
   Form,
   FormControl,
@@ -34,6 +36,11 @@ import {
   removeOrganizationMemberAction,
 } from "@/app/organization/actions";
 import { invitationSchema, type InvitationFormData } from "@/features/auth/domain/schemas/auth.schema";
+import {
+  orgDialogBackdropVariants,
+  orgDialogPanelVariants,
+  orgSectionItemVariants,
+} from "@/shared/animation";
 
 interface MemberItem {
   memberId: string;
@@ -225,14 +232,25 @@ export const OrganizationMembersTab = ({ currentRole }: OrganizationMembersTabPr
         )}
 
         {/* Invite Dialog Modal */}
-        {isInviteOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="invite-member-title"
-          >
-            <div className="w-full max-w-md rounded-lg border border-border bg-card shadow-2xl p-6 space-y-5">
+        <AnimatePresence>
+          {isInviteOpen && (
+            <motion.div
+              variants={orgDialogBackdropVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="invite-member-title"
+            >
+              <motion.div
+                variants={orgDialogPanelVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="w-full max-w-md rounded-lg border border-border bg-card shadow-2xl p-6 space-y-5"
+              >
               <div className="flex items-center justify-between">
                 <h3 id="invite-member-title" className="text-base font-semibold text-foreground">
                   Invite New Member
@@ -274,17 +292,20 @@ export const OrganizationMembersTab = ({ currentRole }: OrganizationMembersTabPr
                       <FormItem>
                         <FormLabel>Assigned Role</FormLabel>
                         <FormControl>
-                          <select
-                            className="h-10 w-full rounded-md border border-input-border bg-input-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          <Select
+                            options={[
+                              { value: "USER", label: "USER", description: "Standard Member" },
+                              { value: "ENGINEER", label: "ENGINEER", description: "Technical Operator" },
+                              ...(currentRole === "OWNER"
+                                ? [{ value: "ADMIN", label: "ADMIN", description: "Organization Administrator" }]
+                                : []),
+                            ]}
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
                             disabled={inviteForm.formState.isSubmitting}
-                            {...field}
-                          >
-                            <option value="USER">USER (Standard Member)</option>
-                            <option value="ENGINEER">ENGINEER (Technical Operator)</option>
-                            {currentRole === "OWNER" && (
-                              <option value="ADMIN">ADMIN (Organization Administrator)</option>
-                            )}
-                          </select>
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -312,9 +333,10 @@ export const OrganizationMembersTab = ({ currentRole }: OrganizationMembersTabPr
                   </div>
                 </form>
               </Form>
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Member List */}
         <div className="mt-6">
@@ -334,8 +356,9 @@ export const OrganizationMembersTab = ({ currentRole }: OrganizationMembersTabPr
           ) : (
             <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
               {members.map((member) => (
-                <div
+                <motion.div
                   key={member.memberId}
+                  variants={orgSectionItemVariants}
                   className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-card hover:bg-surface-elevated/40 transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -357,15 +380,18 @@ export const OrganizationMembersTab = ({ currentRole }: OrganizationMembersTabPr
                     {/* Role changer modal/inline */}
                     {editingMember?.memberId === member.memberId ? (
                       <div className="flex items-center gap-1.5">
-                        <select
-                          className="h-8 rounded border border-input-border bg-input-background px-2 text-xs text-foreground"
+                        <Select
+                          aria-label={`Change role for ${member.name || member.email}`}
+                          size="sm"
+                          wrapperClassName="w-auto min-w-28"
+                          options={[
+                            { value: "USER", label: "USER" },
+                            { value: "ENGINEER", label: "ENGINEER" },
+                            ...(currentRole === "OWNER" ? [{ value: "ADMIN", label: "ADMIN" }] : []),
+                          ]}
                           value={newRole}
-                          onChange={(e) => setNewRole(e.target.value)}
-                        >
-                          <option value="USER">USER</option>
-                          <option value="ENGINEER">ENGINEER</option>
-                          {currentRole === "OWNER" && <option value="ADMIN">ADMIN</option>}
-                        </select>
+                          onChange={setNewRole}
+                        />
                         <Button
                           size="sm"
                           variant="primary"
@@ -422,7 +448,7 @@ export const OrganizationMembersTab = ({ currentRole }: OrganizationMembersTabPr
                       </span>
                     )}
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}

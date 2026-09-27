@@ -9,6 +9,7 @@ import { transactionalMailer } from "@/features/auth/infrastructure/email/mailer
 import { prismaOrganizationRepository } from "@/features/organization/infrastructure/prisma/prisma-organization-repository";
 import { defaultLogoStorageService } from "@/features/organization/infrastructure/storage/logo-storage-service";
 import { executeGetOrganizationProfile } from "@/features/organization/application/use-cases/get-organization-profile.use-case";
+import { executeGetViewerRole } from "@/features/organization/application/use-cases/get-viewer-role.use-case";
 import { executeUpdateOrganizationProfile } from "@/features/organization/application/use-cases/update-organization-profile.use-case";
 import { executeUpdateOrganizationLegal } from "@/features/organization/application/use-cases/update-organization-legal.use-case";
 import {
@@ -17,6 +18,33 @@ import {
   executeDeleteAddress,
   executeSetDefaultAddress,
 } from "@/features/organization/application/use-cases/manage-organization-address.use-case";
+import {
+  executeCreateLocation,
+  executeGetLocationDetail,
+  executeListLocations,
+  executeSetDefaultLocation,
+  executeSetLocationActive,
+  executeUpdateLocation,
+} from "@/features/organization/application/use-cases/manage-organization-locations.use-case";
+import {
+  executeCreateDepartment,
+  executeGetDepartmentDetail,
+  executeListDepartments,
+  executeSetDepartmentActive,
+  executeUpdateDepartment,
+} from "@/features/organization/application/use-cases/manage-organization-departments.use-case";
+import {
+  executeRemoveAssignment,
+  executeSyncDepartmentAssignments,
+  executeSyncLocationAssignments,
+} from "@/features/organization/application/use-cases/manage-location-department-assignments.use-case";
+import type {
+  DepartmentDetail,
+  DepartmentWithLocationCount,
+  LocationDetail,
+  LocationWithDepartmentCount,
+  PaginatedResult,
+} from "@/features/organization/domain/entities/location-department";
 import { executeUpdateOrganizationSettings } from "@/features/organization/application/use-cases/update-organization-settings.use-case";
 import {
   executeUploadOrganizationLogo,
@@ -231,6 +259,173 @@ export const removeOrganizationMemberAction = async (input: unknown) => {
     const data = await executeRemoveMember(input, getDeps());
     revalidatePath("/organization");
     return { ok: true as const, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+const revalidateLocationDepartmentPaths = () => {
+  revalidatePath("/organization/locations");
+  revalidatePath("/organization/departments");
+  revalidatePath("/organization");
+};
+
+export const listLocationsAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<PaginatedResult<LocationWithDepartmentCount>>> => {
+  try {
+    const data = await executeListLocations(input, getDeps());
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const getLocationDetailAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ location: LocationDetail }>> => {
+  try {
+    const data = await executeGetLocationDetail(input, getDeps());
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const saveLocationAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ location: LocationDetail }>> => {
+  try {
+    const isUpdate = Boolean(
+      input && typeof input === "object" && "locationId" in input && (input as Record<string, unknown>).locationId,
+    );
+    const data = isUpdate
+      ? await executeUpdateLocation(input, getDeps())
+      : await executeCreateLocation(input, getDeps());
+    revalidateLocationDepartmentPaths();
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const setLocationActiveAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ location: LocationDetail }>> => {
+  try {
+    const data = await executeSetLocationActive(input, getDeps());
+    revalidateLocationDepartmentPaths();
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const setDefaultLocationAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ location: LocationDetail }>> => {
+  try {
+    const data = await executeSetDefaultLocation(input, getDeps());
+    revalidateLocationDepartmentPaths();
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const listDepartmentsAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<PaginatedResult<DepartmentWithLocationCount>>> => {
+  try {
+    const data = await executeListDepartments(input, getDeps());
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const getDepartmentDetailAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ department: DepartmentDetail }>> => {
+  try {
+    const data = await executeGetDepartmentDetail(input, getDeps());
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const saveDepartmentAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ department: DepartmentDetail }>> => {
+  try {
+    const isUpdate = Boolean(
+      input && typeof input === "object" && "departmentId" in input && (input as Record<string, unknown>).departmentId,
+    );
+    const data = isUpdate
+      ? await executeUpdateDepartment(input, getDeps())
+      : await executeCreateDepartment(input, getDeps());
+    revalidateLocationDepartmentPaths();
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const setDepartmentActiveAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ department: DepartmentDetail }>> => {
+  try {
+    const data = await executeSetDepartmentActive(input, getDeps());
+    revalidateLocationDepartmentPaths();
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const syncLocationAssignmentsAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ assigned: number; removed: number }>> => {
+  try {
+    const data = await executeSyncLocationAssignments(input, getDeps());
+    revalidateLocationDepartmentPaths();
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const syncDepartmentAssignmentsAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ assigned: number; removed: number }>> => {
+  try {
+    const data = await executeSyncDepartmentAssignments(input, getDeps());
+    revalidateLocationDepartmentPaths();
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const removeAssignmentAction = async (
+  input: unknown,
+): Promise<OrganizationActionResult<{ removed: boolean }>> => {
+  try {
+    const data = await executeRemoveAssignment(input, getDeps());
+    revalidateLocationDepartmentPaths();
+    return { ok: true, data };
+  } catch (error) {
+    return handleActionError(error);
+  }
+};
+
+export const getViewerRoleAction = async (): Promise<
+  OrganizationActionResult<{ role: string }>
+> => {
+  try {
+    const data = await executeGetViewerRole({}, getDeps());
+    return { ok: true, data };
   } catch (error) {
     return handleActionError(error);
   }

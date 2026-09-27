@@ -120,6 +120,9 @@ model Organization {
 
   members     Member[]
   invitations Invitation[]
+  locations   Location[]
+  departments Department[]
+  locationDepartments LocationDepartment[]
 
   // Comprehensive Organization Profile fields
   legalName          String?
@@ -227,4 +230,78 @@ model RateLimitHit {
 
   @@index([key, createdAt])
   @@map("rate_limit_hit")
+}
+
+// Operational site belonging to exactly one organization. Soft-deactivated
+// via isActive (rows and assignments are preserved); at most one default
+// per organization, transitioned atomically in the repository.
+model Location {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  code           String
+  description    String?
+  email          String?
+  phone          String?
+  addressLine1   String?
+  addressLine2   String?
+  city           String?
+  state          String?
+  postalCode     String?
+  country        String?
+  timezone       String?
+  isDefault      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignments    LocationDepartment[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@map("location")
+}
+
+// Organizational unit belonging to exactly one organization. Departments
+// may exist without any location assignment. Soft-deactivated via
+// isActive; assignments are preserved across deactivation cycles.
+model Department {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  code           String
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignments    LocationDepartment[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@map("department")
+}
+
+// Many-to-many assignment between a location and a department within the
+// same organization. organizationId is denormalized so tenant isolation
+// holds without joining parents. Removing a row never deletes either side.
+model LocationDepartment {
+  id             String     @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String
+  location       Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  departmentId   String
+  department     Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+
+  @@unique([locationId, departmentId])
+  @@index([organizationId])
+  @@index([locationId])
+  @@index([departmentId])
+  @@map("location_department")
 }

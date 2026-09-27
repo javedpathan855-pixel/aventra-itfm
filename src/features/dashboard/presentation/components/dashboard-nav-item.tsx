@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Compass } from "lucide-react";
 import cn from "@/shared/utils/cn";
+import { isNavHrefActive } from "@/features/auth/presentation/navigation/navigation";
 
 interface DashboardNavItemProps {
   href: string;
@@ -20,11 +21,9 @@ export const DashboardNavItem = ({
 }: DashboardNavItemProps) => {
   const pathname = usePathname();
 
-  // /dashboard is active only on exact match or subroutes; other routes match prefix
-  const isActive = pathname
-    ? pathname === href ||
-      (href !== "/dashboard" && pathname.startsWith(`${href}/`))
-    : false;
+  // Leaf routes match exactly: a parent entry must never appear selected
+  // merely because one of its child routes is active.
+  const isActive = isNavHrefActive(pathname, href);
 
   const isDashboardRoute =
     href === "/dashboard" || href.startsWith("/dashboard");

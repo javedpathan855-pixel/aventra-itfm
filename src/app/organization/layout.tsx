@@ -68,6 +68,7 @@ const OrganizationLayout = async ({ children }: OrganizationLayoutProps) => {
       activeOrganization={activeOrganization}
       organizations={organizationItems}
       navigationItems={navigationItems}
+      contentClassName="w-full"
     >
       {children}
     </DashboardShell>

@@ -20,7 +20,15 @@ type OrganizationPermission =
   | "member.remove"
   | "invitation.read"
   | "invitation.create"
-  | "invitation.cancel";
+  | "invitation.cancel"
+  | "location.read"
+  | "location.create"
+  | "location.update"
+  | "location.assign"
+  | "department.read"
+  | "department.create"
+  | "department.update"
+  | "department.assign";
 
 type PlatformPermission =
   | "platform.organization.read"
@@ -34,8 +42,9 @@ type PlatformPermission =
  * Role → permission matrix. OWNER holds every organization permission;
  * ADMIN holds everything except organization.delete and
  * organization.transferOwnership; ENGINEER and USER hold no
- * organization-management permissions (operational permissions arrive
- * with future modules).
+ * organization-management permissions. Locations and departments are
+ * operational data: OWNER and ADMIN manage them fully, while ENGINEER
+ * and USER receive read-only access (least privilege — no management).
  */
 const ROLE_PERMISSIONS: Record<OrganizationRole, readonly OrganizationPermission[]> = {
   OWNER: [
@@ -50,6 +59,14 @@ const ROLE_PERMISSIONS: Record<OrganizationRole, readonly OrganizationPermission
     "invitation.read",
     "invitation.create",
     "invitation.cancel",
+    "location.read",
+    "location.create",
+    "location.update",
+    "location.assign",
+    "department.read",
+    "department.create",
+    "department.update",
+    "department.assign",
   ],
   ADMIN: [
     "organization.read",
@@ -61,9 +78,17 @@ const ROLE_PERMISSIONS: Record<OrganizationRole, readonly OrganizationPermission
     "invitation.read",
     "invitation.create",
     "invitation.cancel",
+    "location.read",
+    "location.create",
+    "location.update",
+    "location.assign",
+    "department.read",
+    "department.create",
+    "department.update",
+    "department.assign",
   ],
-  ENGINEER: [],
-  USER: [],
+  ENGINEER: ["location.read", "department.read"],
+  USER: ["location.read", "department.read"],
 } as const;
 
 /** Platform permissions held exclusively by SUPERADMIN. Never mapped from organization roles. */

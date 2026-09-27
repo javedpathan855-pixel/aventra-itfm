@@ -17,7 +17,7 @@ export const executeListAddresses = async (
   deps: UpdateProfileDeps,
 ): Promise<{ addresses: OrganizationAddressEntity[] }> => {
   try {
-    const context = await resolveAuthorizationContext({}, deps);
+    const context = await resolveAuthorizationContext({ autoSelectDefault: true }, deps);
     requirePermission(context, "organization.read");
 
     if (!context.organizationId) {
@@ -41,7 +41,7 @@ export const executeCreateAddress = async (
   }
 
   try {
-    const context = await resolveAuthorizationContext({}, deps);
+    const context = await resolveAuthorizationContext({ autoSelectDefault: true }, deps);
     requirePermission(context, "organization.update");
 
     if (!context.organizationId) {
@@ -84,7 +84,7 @@ export const executeUpdateAddress = async (
   }
 
   try {
-    const context = await resolveAuthorizationContext({}, deps);
+    const context = await resolveAuthorizationContext({ autoSelectDefault: true }, deps);
     requirePermission(context, "organization.update");
 
     if (!context.organizationId) {
@@ -124,7 +124,7 @@ export const executeDeleteAddress = async (
   }
 
   try {
-    const context = await resolveAuthorizationContext({}, deps);
+    const context = await resolveAuthorizationContext({ autoSelectDefault: true }, deps);
     requirePermission(context, "organization.update");
 
     if (!context.organizationId) {
@@ -163,7 +163,7 @@ export const executeSetDefaultAddress = async (
   }
 
   try {
-    const context = await resolveAuthorizationContext({}, deps);
+    const context = await resolveAuthorizationContext({ autoSelectDefault: true }, deps);
     requirePermission(context, "organization.update");
 
     if (!context.organizationId) {

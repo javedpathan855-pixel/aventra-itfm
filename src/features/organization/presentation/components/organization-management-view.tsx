@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import {
+  orgPageStaggerVariants,
+  orgSectionItemVariants,
+  orgTabContentVariants,
+} from "@/shared/animation";
 import {
   Building2,
   FileText,
@@ -66,8 +72,10 @@ export const OrganizationManagementView = ({
   userRole,
 }: OrganizationManagementViewProps) => {
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
-  const [profile, setProfile] = useState<OrganizationProfileEntity>(initialProfile);
-  const [completion, setCompletion] = useState<ProfileCompletionResult>(initialCompletion);
+  const [profile, setProfile] =
+    useState<OrganizationProfileEntity>(initialProfile);
+  const [completion, setCompletion] =
+    useState<ProfileCompletionResult>(initialCompletion);
 
   const canEdit = userRole === "OWNER" || userRole === "ADMIN";
 
@@ -100,146 +108,188 @@ export const OrganizationManagementView = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <Card className="p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="relative h-16 w-16 shrink-0 rounded-xl border border-border bg-surface-elevated flex items-center justify-center overflow-hidden shadow-xs">
-              {profile.logo ? (
-                <Image
-                  src={profile.logo}
-                  alt={`${profile.name} logo`}
-                  fill
-                  sizes="64px"
-                  className="object-contain p-1"
-                  unoptimized
-                />
-              ) : (
-                <Building2 className="h-8 w-8 text-primary/80" />
-              )}
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-                  {profile.name}
-                </h1>
-                <Badge variant="primary" size="sm">
-                  {userRole}
-                </Badge>
-                <Badge
-                  variant={profile.status === "active" ? "success" : "default"}
-                  size="sm"
-                >
-                  {profile.status.toUpperCase()}
-                </Badge>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted">
-                {profile.legalName && <span>Legal: {profile.legalName}</span>}
-                <span>Slug: <code className="font-mono text-foreground/80">{profile.slug}</code></span>
-                {profile.businessType && <span>Type: {profile.businessType}</span>}
-              </div>
-            </div>
-          </div>
-
-          <div className="shrink-0 flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <span className="text-xs text-muted">Organization ID</span>
-              <p className="font-mono text-xs text-foreground truncate max-w-[140px]" title={profile.id}>
-                {profile.id}
-              </p>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Profile Readiness & Completion Card */}
-      <ProfileCompletionCard
-        completion={completion}
-        onNavigateTab={handleNavigateTab}
-      />
-
-      {/* Tab Navigation */}
-      <div
-        role="tablist"
-        aria-label="Organization sections"
-        className="flex items-center gap-1 overflow-x-auto pb-1 border-b border-border no-scrollbar"
+    <MotionConfig reducedMotion="user">
+      <motion.div
+        variants={orgPageStaggerVariants}
+        initial="initial"
+        animate="animate"
+        className="space-y-6"
       >
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              role="tab"
-              aria-selected={isActive}
-              aria-controls={`tab-content-${tab.key}`}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-md text-xs font-medium transition-colors whitespace-nowrap border-b-2 -mb-[1px] ${
-                isActive
-                  ? "border-primary text-foreground bg-surface-elevated/40"
-                  : "border-transparent text-muted hover:text-foreground hover:bg-surface-elevated/20"
-              }`}
-            >
-              <Icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted"}`} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+        {/* Header Banner */}
+        <motion.div variants={orgSectionItemVariants}>
+          <Card className="p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="relative h-16 w-16 shrink-0 rounded-xl border border-border bg-surface-elevated flex items-center justify-center overflow-hidden shadow-xs">
+                  {profile.logo ? (
+                    <Image
+                      src={profile.logo}
+                      alt={`${profile.name} logo`}
+                      fill
+                      sizes="64px"
+                      className="object-contain p-1"
+                      unoptimized
+                    />
+                  ) : (
+                    <Building2 className="h-8 w-8 text-primary/80" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+                      {profile.name}
+                    </h1>
+                    <Badge variant="primary" size="sm">
+                      {userRole}
+                    </Badge>
+                    <Badge
+                      variant={
+                        profile.status === "active" ? "success" : "default"
+                      }
+                      size="sm"
+                    >
+                      {profile.status.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted">
+                    {profile.legalName && (
+                      <span>Legal: {profile.legalName}</span>
+                    )}
+                    <span>
+                      Slug:{" "}
+                      <code className="font-mono text-foreground/80">
+                        {profile.slug}
+                      </code>
+                    </span>
+                    {profile.businessType && (
+                      <span>Type: {profile.businessType}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-      {/* Tab Contents */}
-      <div id={`tab-content-${activeTab}`} role="tabpanel" tabIndex={0} className="focus:outline-none">
-        {activeTab === "overview" && (
-          <OrganizationOverviewTab
-            profile={profile}
+              <div className="shrink-0 flex items-center gap-3">
+                <div className="text-right hidden sm:block">
+                  <span className="text-xs text-muted">Organization ID</span>
+                  <p
+                    className="font-mono text-xs text-foreground truncate max-w-[140px]"
+                    title={profile.id}
+                  >
+                    {profile.id}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+
+        {/* Profile Readiness & Completion Card */}
+        <motion.div variants={orgSectionItemVariants}>
+          <ProfileCompletionCard
             completion={completion}
-            role={userRole}
             onNavigateTab={handleNavigateTab}
           />
-        )}
+        </motion.div>
 
-        {activeTab === "general" && (
-          <OrganizationGeneralTab
-            profile={profile}
-            onProfileUpdated={handleProfileUpdated}
-          />
-        )}
+        {/* Tab Navigation */}
+        <motion.div
+          variants={orgSectionItemVariants}
+          role="tablist"
+          aria-label="Organization sections"
+          className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar"
+        >
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                role="tab"
+                aria-selected={isActive}
+                aria-controls={`tab-content-${tab.key}`}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-t-md text-xs font-medium transition-colors whitespace-nowrap border-b-2 -mb-[1px] ${
+                  isActive
+                    ? "border-primary text-foreground bg-surface-elevated/40"
+                    : "border-transparent text-muted hover:text-foreground hover:bg-surface-elevated/20"
+                }`}
+              >
+                <Icon
+                  className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted"}`}
+                />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </motion.div>
 
-        {activeTab === "legal" && (
-          <OrganizationLegalTab
-            profile={profile}
-            onProfileUpdated={handleProfileUpdated}
-          />
-        )}
+        {/* Tab Contents */}
+        <motion.div variants={orgSectionItemVariants}>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              variants={orgTabContentVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              id={`tab-content-${activeTab}`}
+              role="tabpanel"
+              tabIndex={0}
+              className="focus:outline-none"
+            >
+              {activeTab === "overview" && (
+                <OrganizationOverviewTab
+                  profile={profile}
+                  completion={completion}
+                  role={userRole}
+                  onNavigateTab={handleNavigateTab}
+                />
+              )}
 
-        {activeTab === "addresses" && (
-          <OrganizationAddressesTab
-            addresses={profile.addresses}
-            onAddressesUpdated={handleAddressesUpdated}
-          />
-        )}
+              {activeTab === "general" && (
+                <OrganizationGeneralTab
+                  profile={profile}
+                  onProfileUpdated={handleProfileUpdated}
+                />
+              )}
 
-        {activeTab === "branding" && (
-          <OrganizationBrandingTab
-            profile={profile}
-            onProfileUpdated={handleProfileUpdated}
-            canEdit={canEdit}
-          />
-        )}
+              {activeTab === "legal" && (
+                <OrganizationLegalTab
+                  profile={profile}
+                  onProfileUpdated={handleProfileUpdated}
+                />
+              )}
 
-        {activeTab === "settings" && (
-          <OrganizationSettingsTab
-            profile={profile}
-            onSettingsUpdated={handleSettingsUpdated}
-            canEdit={canEdit}
-          />
-        )}
+              {activeTab === "addresses" && (
+                <OrganizationAddressesTab
+                  addresses={profile.addresses}
+                  onAddressesUpdated={handleAddressesUpdated}
+                />
+              )}
 
-        {activeTab === "members" && (
-          <OrganizationMembersTab currentRole={userRole} />
-        )}
-      </div>
-    </div>
+              {activeTab === "branding" && (
+                <OrganizationBrandingTab
+                  profile={profile}
+                  onProfileUpdated={handleProfileUpdated}
+                  canEdit={canEdit}
+                />
+              )}
+
+              {activeTab === "settings" && (
+                <OrganizationSettingsTab
+                  profile={profile}
+                  onSettingsUpdated={handleSettingsUpdated}
+                  canEdit={canEdit}
+                />
+              )}
+
+              {activeTab === "members" && (
+                <OrganizationMembersTab currentRole={userRole} />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
+      </motion.div>
+    </MotionConfig>
   );
 };

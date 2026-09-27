@@ -263,6 +263,62 @@ describe("Shared UI and Dashboard Presentation Components", () => {
       assert.ok(html.includes('href="/dashboard"'));
       assert.ok(html.includes('href="/dashboard/settings"'));
     });
+
+    it("constrains content width by default", () => {
+      const html = renderToStaticMarkup(
+        React.createElement(
+          AppRouterContext.Provider,
+          { value: mockRouter },
+          React.createElement(
+            DashboardShell,
+            {
+              user: {
+                id: "usr-1",
+                email: "test@aventra.io",
+                name: "Test User",
+                platformRole: null,
+                roleLabel: "User",
+              },
+              activeOrganization: null,
+              organizations: [],
+              navigationItems: [{ label: "Dashboard", href: "/dashboard" }],
+            },
+            React.createElement("div", { id: "test-child" }, "Dashboard Content"),
+          ),
+        ),
+      );
+
+      assert.ok(html.includes("max-w-7xl"));
+    });
+
+    it("uses the full content width when contentClassName is overridden", () => {
+      const html = renderToStaticMarkup(
+        React.createElement(
+          AppRouterContext.Provider,
+          { value: mockRouter },
+          React.createElement(
+            DashboardShell,
+            {
+              user: {
+                id: "usr-1",
+                email: "test@aventra.io",
+                name: "Test User",
+                platformRole: null,
+                roleLabel: "User",
+              },
+              activeOrganization: null,
+              organizations: [],
+              navigationItems: [{ label: "Dashboard", href: "/dashboard" }],
+              contentClassName: "w-full",
+            },
+            React.createElement("div", { id: "test-child" }, "Dashboard Content"),
+          ),
+        ),
+      );
+
+      assert.ok(!html.includes("max-w-7xl"));
+      assert.ok(html.includes("Dashboard Content"));
+    });
   });
 
   describe("Notification Bell composing shared Dropdown", () => {

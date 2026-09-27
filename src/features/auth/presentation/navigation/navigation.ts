@@ -27,6 +27,8 @@ interface NavigationItem {
   href: string;
   /** Null = visible to any authenticated user. */
   permission: NavigationPermission | null;
+  /** Nested items render as an expandable group under this entry. */
+  children?: readonly NavigationItem[];
 }
 
 interface NavigationContext {
@@ -40,21 +42,66 @@ const NAVIGATION: readonly NavigationItem[] = [
     label: "Organization",
     href: "/organization",
     permission: { scope: "organization", permission: "organization.read" },
+    children: [
+      {
+        label: "Overview",
+        href: "/organization",
+        permission: { scope: "organization", permission: "organization.read" },
+      },
+      {
+        label: "Locations",
+        href: "/organization/locations",
+        permission: { scope: "organization", permission: "location.read" },
+      },
+      {
+        label: "Departments",
+        href: "/organization/departments",
+        permission: { scope: "organization", permission: "department.read" },
+      },
+    ],
   },
 ];
+
+/** Filter navigation items by already-resolved roles. Pure. */
+const filterNavigationItem = (
+  item: NavigationItem,
+  context: NavigationContext,
+): NavigationItem | null => {
+  const children = item.children
+    ?.map((child) => filterNavigationItem(child, context))
+    .filter((child): child is NavigationItem => child !== null);
+  const ownVisible =
+    item.permission === null ||
+    (item.permission.scope === "organization"
+      ? hasOrganizationPermission(context.organizationRole, item.permission.permission)
+      : hasPlatformPermission(context.platformRole, item.permission.permission));
+  // A group survives on visible children alone so roles without the
+  // parent permission (e.g. ENGINEER) still reach permitted pages.
+  if (item.children) {
+    if (!ownVisible && (!children || children.length === 0)) return null;
+    return { ...item, children: children ?? [] };
+  }
+  return ownVisible ? item : null;
+};
 
 /** Filter navigation items by already-resolved roles. Pure. */
 const filterNavigation = (
   items: readonly NavigationItem[],
   context: NavigationContext,
 ): NavigationItem[] =>
-  items.filter((item) => {
-    if (item.permission === null) return true;
-    if (item.permission.scope === "organization") {
-      return hasOrganizationPermission(context.organizationRole, item.permission.permission);
-    }
-    return hasPlatformPermission(context.platformRole, item.permission.permission);
-  });
+  items
+    .map((item) => filterNavigationItem(item, context))
+    .filter((item): item is NavigationItem => item !== null);
 
-export { NAVIGATION, filterNavigation };
+/** Exact leaf-route match. Parents never match by prefix. */
+const isNavHrefActive = (pathname: string | null, href: string): boolean =>
+  pathname !== null && pathname === href;
+
+/** True when any nested child exactly matches the current route. */
+const hasActiveNavChild = (
+  pathname: string | null,
+  children: readonly { href: string }[],
+): boolean => children.some((child) => isNavHrefActive(pathname, child.href));
+
+export { NAVIGATION, filterNavigation, isNavHrefActive, hasActiveNavChild };
 export type { NavigationItem, NavigationPermission, NavigationContext };

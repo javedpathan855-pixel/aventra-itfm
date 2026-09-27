@@ -70,6 +70,14 @@
   /* Shell Layout Dimensions */
   --sidebar-width: 16rem;
   --header-height: 4rem;
+
+  /* Scrollbar Tokens (Deep Dark Enterprise Glassmorphism) */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(98, 116, 166, 0.28);
+  --scrollbar-thumb-hover: rgba(118, 143, 255, 0.48);
+  --scrollbar-thumb-active: rgba(74, 99, 216, 0.7);
+  --scrollbar-size: 6px;
+  --scrollbar-size-thick: 10px;
 }
 
 @theme inline {
@@ -118,6 +126,12 @@
   --color-info-muted: var(--info-muted);
   --color-info-foreground: var(--info-foreground);
 
+  /* Scrollbar Theme */
+  --color-scrollbar-track: var(--scrollbar-track);
+  --color-scrollbar-thumb: var(--scrollbar-thumb);
+  --color-scrollbar-thumb-hover: var(--scrollbar-thumb-hover);
+  --color-scrollbar-thumb-active: var(--scrollbar-thumb-active);
+
   /* Card System */
   --background-image-card-background: var(--card-background);
   --shadow-card: var(--card-shadow);
@@ -134,4 +148,101 @@ body {
   color: var(--foreground);
   font-family: var(--font-montserrat);
 }
+
+/* ==========================================================================
+   Global Premium Scrollbar Configuration
+   ========================================================================== */
+
+/* Standard CSS Scrollbars (Firefox, Chromium 121+, Safari 18.2+) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* WebKit / Blink Custom Scrollbars (Chrome, Safari, Edge legacy & desktop) */
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-active);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* High Contrast Preference Override */
+@media (prefers-contrast: more) {
+  :root {
+    --scrollbar-thumb: #8c9cb8;
+    --scrollbar-thumb-hover: #ffffff;
+    --scrollbar-track: #0c1424;
+  }
+
+  * {
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+}
+
+/* ==========================================================================
+   Scrollbar Utility Classes
+   ========================================================================== */
+
+/* Hide scrollbar while preserving scrollability (tab lists, chips, carousels) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar utility for explicitly styled nested containers */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
 
