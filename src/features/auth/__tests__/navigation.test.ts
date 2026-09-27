@@ -43,12 +43,17 @@ describe("Authorization-aware navigation", () => {
   it("ships only existing routes in the live definition", () => {
     assert.deepEqual(
       NAVIGATION.map((item) => item.href),
-      ["/dashboard", "/organization"],
+      ["/dashboard", "/organization", "/assets"],
     );
     const organization = NAVIGATION.find((item) => item.href === "/organization");
     assert.deepEqual(
       organization?.children?.map((child) => child.href),
       ["/organization", "/organization/locations", "/organization/departments"],
+    );
+    const assets = NAVIGATION.find((item) => item.href === "/assets");
+    assert.deepEqual(
+      assets?.children?.map((child) => child.href),
+      ["/assets/dashboard", "/assets", "/assets/categories", "/assets/reports"],
     );
   });
 

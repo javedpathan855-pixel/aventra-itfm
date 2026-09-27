@@ -60,6 +60,33 @@ const NAVIGATION: readonly NavigationItem[] = [
       },
     ],
   },
+  {
+    label: "Assets",
+    href: "/assets",
+    permission: { scope: "organization", permission: "asset.read" },
+    children: [
+      {
+        label: "Dashboard",
+        href: "/assets/dashboard",
+        permission: { scope: "organization", permission: "asset.read" },
+      },
+      {
+        label: "Registry",
+        href: "/assets",
+        permission: { scope: "organization", permission: "asset.read" },
+      },
+      {
+        label: "Categories & Models",
+        href: "/assets/categories",
+        permission: { scope: "organization", permission: "asset.category.read" },
+      },
+      {
+        label: "Reports",
+        href: "/assets/reports",
+        permission: { scope: "organization", permission: "asset.report.read" },
+      },
+    ],
+  },
 ];
 
 /** Filter navigation items by already-resolved roles. Pure. */

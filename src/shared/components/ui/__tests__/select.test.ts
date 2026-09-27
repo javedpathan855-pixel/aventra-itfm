@@ -9,8 +9,10 @@ import {
   computePanelPlacement,
   filterSelectOptions,
   getSelectedOption,
+  isSamePlacement,
   moveHighlightIndex,
   resolveOptionVisualState,
+  trackPanelPosition,
   type SelectOption,
 } from "../select";
 
@@ -342,6 +344,90 @@ describe("Select panel placement", () => {
     assert.ok(html.includes("position:fixed") || html.includes("position: fixed"));
     assert.ok(html.includes("z-index:50") || html.includes("z-index: 50"));
     assert.ok(html.includes('role="listbox"'));
+  });
+
+  it("keeps scroll tracking dimensionally stable", () => {
+    // Simulates consecutive scroll frames with an identical trigger rect:
+    // tracking must return the same top/left so no state update follows.
+    const frame = (top: number, bottom: number) =>
+      trackPanelPosition(
+        { top, bottom, left: 50, width: 200 },
+        200,
+        220,
+        false,
+        { width: 1280, height: 800 },
+      );
+    assert.deepEqual(frame(100, 140), frame(100, 140));
+    assert.deepEqual(frame(100, 140), { top: 148, left: 50 });
+  });
+
+  it("tracks the trigger without flipping direction mid-scroll", () => {
+    // The open-time upward decision sticks: scrolling the trigger toward
+    // the viewport bottom must not teleport the panel above it.
+    const below = trackPanelPosition(
+      { top: 700, bottom: 740, left: 50, width: 200 },
+      200,
+      220,
+      false,
+      { width: 1280, height: 800 },
+    );
+    assert.deepEqual(below, { top: 748, left: 50 });
+    const above = trackPanelPosition(
+      { top: 700, bottom: 740, left: 50, width: 200 },
+      200,
+      220,
+      true,
+      { width: 1280, height: 800 },
+    );
+    assert.deepEqual(above, { top: 700 - 200 - 8, left: 50 });
+  });
+
+  it("clamps tracked position inside the viewport", () => {
+    const right = trackPanelPosition(
+      { top: 100, bottom: 140, left: 1150, width: 200 },
+      100,
+      200,
+      false,
+      { width: 1280, height: 800 },
+    );
+    assert.ok(right.left + 200 <= 1280 - 8);
+    const topEdge = trackPanelPosition(
+      { top: -50, bottom: -10, left: 50, width: 200 },
+      100,
+      200,
+      true,
+      { width: 1280, height: 800 },
+    );
+    assert.ok(topEdge.top >= 8);
+  });
+
+  it("detects identical placements so scroll frames skip state updates", () => {
+    assert.equal(isSamePlacement(null, null), true);
+    assert.equal(
+      isSamePlacement(null, { top: 1, left: 2, width: 3, upward: false }),
+      false,
+    );
+    assert.equal(
+      isSamePlacement(
+        { top: 148, left: 50, width: 220, upward: false },
+        { top: 148, left: 50, width: 220, upward: false },
+      ),
+      true,
+    );
+    assert.equal(
+      isSamePlacement(
+        { top: 148, left: 50, width: 220, upward: false },
+        { top: 149, left: 50, width: 220, upward: false },
+      ),
+      false,
+    );
+    assert.equal(
+      isSamePlacement(
+        { top: 148, left: 50, width: 220, upward: false },
+        { top: 148, left: 50, width: 260, upward: false },
+      ),
+      false,
+    );
   });
 
   it("does not alter surrounding layout: the panel is out of flow", () => {
