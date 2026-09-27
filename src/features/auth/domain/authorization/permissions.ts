@@ -28,7 +28,19 @@ type OrganizationPermission =
   | "department.read"
   | "department.create"
   | "department.update"
-  | "department.assign";
+  | "department.assign"
+  | "asset.read"
+  | "asset.create"
+  | "asset.update"
+  | "asset.archive"
+  | "asset.assign"
+  | "asset.return"
+  | "asset.category.read"
+  | "asset.category.manage"
+  | "asset.model.read"
+  | "asset.model.manage"
+  | "asset.report.read"
+  | "asset.export";
 
 type PlatformPermission =
   | "platform.organization.read"
@@ -42,9 +54,10 @@ type PlatformPermission =
  * Role → permission matrix. OWNER holds every organization permission;
  * ADMIN holds everything except organization.delete and
  * organization.transferOwnership; ENGINEER and USER hold no
- * organization-management permissions. Locations and departments are
- * operational data: OWNER and ADMIN manage them fully, while ENGINEER
- * and USER receive read-only access (least privilege — no management).
+ * organization-management permissions. Locations, departments and assets
+ * are operational data: OWNER and ADMIN manage them fully. ENGINEER
+ * additionally handles day-to-day asset assignment/return and reads
+ * reports, while USER keeps read-only access (least privilege).
  */
 const ROLE_PERMISSIONS: Record<OrganizationRole, readonly OrganizationPermission[]> = {
   OWNER: [
@@ -67,6 +80,18 @@ const ROLE_PERMISSIONS: Record<OrganizationRole, readonly OrganizationPermission
     "department.create",
     "department.update",
     "department.assign",
+    "asset.read",
+    "asset.create",
+    "asset.update",
+    "asset.archive",
+    "asset.assign",
+    "asset.return",
+    "asset.category.read",
+    "asset.category.manage",
+    "asset.model.read",
+    "asset.model.manage",
+    "asset.report.read",
+    "asset.export",
   ],
   ADMIN: [
     "organization.read",
@@ -86,9 +111,30 @@ const ROLE_PERMISSIONS: Record<OrganizationRole, readonly OrganizationPermission
     "department.create",
     "department.update",
     "department.assign",
+    "asset.read",
+    "asset.create",
+    "asset.update",
+    "asset.archive",
+    "asset.assign",
+    "asset.return",
+    "asset.category.read",
+    "asset.category.manage",
+    "asset.model.read",
+    "asset.model.manage",
+    "asset.report.read",
+    "asset.export",
   ],
-  ENGINEER: ["location.read", "department.read"],
-  USER: ["location.read", "department.read"],
+  ENGINEER: [
+    "location.read",
+    "department.read",
+    "asset.read",
+    "asset.assign",
+    "asset.return",
+    "asset.category.read",
+    "asset.model.read",
+    "asset.report.read",
+  ],
+  USER: ["location.read", "department.read", "asset.read", "asset.category.read", "asset.model.read"],
 } as const;
 
 /** Platform permissions held exclusively by SUPERADMIN. Never mapped from organization roles. */

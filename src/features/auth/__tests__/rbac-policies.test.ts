@@ -62,7 +62,7 @@ describe("Role model", () => {
 
 describe("Permission matrix", () => {
   it("grants OWNER every organization permission", () => {
-    assert.equal(ROLE_PERMISSIONS.OWNER.length, 19);
+    assert.equal(ROLE_PERMISSIONS.OWNER.length, 31);
     for (const permission of [
       "organization.read",
       "organization.update",
@@ -83,6 +83,18 @@ describe("Permission matrix", () => {
       "department.create",
       "department.update",
       "department.assign",
+      "asset.read",
+      "asset.create",
+      "asset.update",
+      "asset.archive",
+      "asset.assign",
+      "asset.return",
+      "asset.category.read",
+      "asset.category.manage",
+      "asset.model.read",
+      "asset.model.manage",
+      "asset.report.read",
+      "asset.export",
     ] as const) {
       assert.equal(hasOrganizationPermission("OWNER", permission), true);
     }
@@ -98,12 +110,33 @@ describe("Permission matrix", () => {
     assert.equal(hasOrganizationPermission("ADMIN", "location.assign"), true);
     assert.equal(hasOrganizationPermission("ADMIN", "department.create"), true);
     assert.equal(hasOrganizationPermission("ADMIN", "department.assign"), true);
-    assert.equal(ROLE_PERMISSIONS.ADMIN.length, 17);
+    assert.equal(hasOrganizationPermission("ADMIN", "asset.create"), true);
+    assert.equal(hasOrganizationPermission("ADMIN", "asset.archive"), true);
+    assert.equal(hasOrganizationPermission("ADMIN", "asset.assign"), true);
+    assert.equal(hasOrganizationPermission("ADMIN", "asset.category.manage"), true);
+    assert.equal(hasOrganizationPermission("ADMIN", "asset.model.manage"), true);
+    assert.equal(hasOrganizationPermission("ADMIN", "asset.export"), true);
+    assert.equal(ROLE_PERMISSIONS.ADMIN.length, 29);
   });
 
-  it("grants ENGINEER and USER read-only location/department access", () => {
-    assert.deepEqual([...ROLE_PERMISSIONS.ENGINEER], ["location.read", "department.read"]);
-    assert.deepEqual([...ROLE_PERMISSIONS.USER], ["location.read", "department.read"]);
+  it("grants ENGINEER operational asset access and USER read-only access", () => {
+    assert.deepEqual([...ROLE_PERMISSIONS.ENGINEER], [
+      "location.read",
+      "department.read",
+      "asset.read",
+      "asset.assign",
+      "asset.return",
+      "asset.category.read",
+      "asset.model.read",
+      "asset.report.read",
+    ]);
+    assert.deepEqual([...ROLE_PERMISSIONS.USER], [
+      "location.read",
+      "department.read",
+      "asset.read",
+      "asset.category.read",
+      "asset.model.read",
+    ]);
     assert.equal(hasOrganizationPermission("ENGINEER", "location.read"), true);
     assert.equal(hasOrganizationPermission("USER", "department.read"), true);
     assert.equal(hasOrganizationPermission("ENGINEER", "location.create"), false);
@@ -111,6 +144,21 @@ describe("Permission matrix", () => {
     assert.equal(hasOrganizationPermission("USER", "department.update"), false);
     assert.equal(hasOrganizationPermission("ENGINEER", "member.read"), false);
     assert.equal(hasOrganizationPermission("USER", "organization.read"), false);
+    assert.equal(hasOrganizationPermission("ENGINEER", "asset.read"), true);
+    assert.equal(hasOrganizationPermission("ENGINEER", "asset.assign"), true);
+    assert.equal(hasOrganizationPermission("ENGINEER", "asset.return"), true);
+    assert.equal(hasOrganizationPermission("ENGINEER", "asset.report.read"), true);
+    assert.equal(hasOrganizationPermission("ENGINEER", "asset.create"), false);
+    assert.equal(hasOrganizationPermission("ENGINEER", "asset.update"), false);
+    assert.equal(hasOrganizationPermission("ENGINEER", "asset.archive"), false);
+    assert.equal(hasOrganizationPermission("ENGINEER", "asset.category.manage"), false);
+    assert.equal(hasOrganizationPermission("ENGINEER", "asset.export"), false);
+    assert.equal(hasOrganizationPermission("USER", "asset.read"), true);
+    assert.equal(hasOrganizationPermission("USER", "asset.category.read"), true);
+    assert.equal(hasOrganizationPermission("USER", "asset.assign"), false);
+    assert.equal(hasOrganizationPermission("USER", "asset.return"), false);
+    assert.equal(hasOrganizationPermission("USER", "asset.report.read"), false);
+    assert.equal(hasOrganizationPermission("USER", "asset.export"), false);
     assert.equal(hasOrganizationPermission(null, "member.read"), false);
   });
 

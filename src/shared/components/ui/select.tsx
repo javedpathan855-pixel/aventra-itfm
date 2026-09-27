@@ -140,8 +140,7 @@ export const computePanelPlacement = (
   viewport: PanelViewport,
   gap: number = PANEL_GAP,
   contentWidth?: number,
-): PanelPlacement => {
-  const height = Math.min(Math.max(panelHeight, 0), PANEL_MAX_HEIGHT);
+): PanelPlacement => {  const height = Math.min(Math.max(panelHeight, 0), PANEL_MAX_HEIGHT);
   const spaceBelow = viewport.height - trigger.bottom;
   const spaceAbove = trigger.top;
   const upward = spaceBelow < height + gap && spaceAbove > spaceBelow;
@@ -154,6 +153,50 @@ export const computePanelPlacement = (
   const maxLeft = Math.max(PANEL_EDGE_MARGIN, viewport.width - width - PANEL_EDGE_MARGIN);
   const left = Math.min(Math.max(trigger.left, PANEL_EDGE_MARGIN), maxLeft);
   return { top: Math.max(top, PANEL_EDGE_MARGIN), left, width, upward };
+};
+
+/**
+ * Shallow placement equality. The panel state is replaced on every
+ * measurement, so callers must skip identical frames or each scroll tick
+ * rerenders the whole option list for no visible change.
+ */
+export const isSamePlacement = (
+  current: PanelPlacement | null,
+  next: PanelPlacement | null,
+): boolean => {
+  if (current === null || next === null) return current === next;
+  return (
+    current.top === next.top &&
+    current.left === next.left &&
+    current.width === next.width &&
+    current.upward === next.upward
+  );
+};
+
+/**
+ * Position-only tracking for an open panel during scrolling.
+ * Width and the above/below decision are frozen from the open-time
+ * measurement: neither the trigger width nor the content width
+ * legitimately changes because the page scrolled, so recomputing them
+ * per scroll tick can only inject instability (transient scrollWidth,
+ * scrollbar-threshold edges, fractional rects). The panel instead stays
+ * glued to its trigger with byte-identical dimensions. Content height is
+ * passed in by the caller (read live; it only changes with the content,
+ * which takes the full-measure path). Pure and tested.
+ */
+export const trackPanelPosition = (
+  trigger: PanelTriggerRect,
+  panelHeight: number,
+  frozenWidth: number,
+  upward: boolean,
+  viewport: PanelViewport,
+  gap: number = PANEL_GAP,
+): { top: number; left: number } => {
+  const height = Math.min(Math.max(panelHeight, 0), PANEL_MAX_HEIGHT);
+  const top = upward ? trigger.top - height - gap : trigger.bottom + gap;
+  const maxLeft = Math.max(PANEL_EDGE_MARGIN, viewport.width - frozenWidth - PANEL_EDGE_MARGIN);
+  const left = Math.min(Math.max(trigger.left, PANEL_EDGE_MARGIN), maxLeft);
+  return { top: Math.max(top, PANEL_EDGE_MARGIN), left };
 };
 
 export type OptionVisualState = "selected" | "hover" | "keyboard" | "default";
@@ -334,40 +377,79 @@ const Select = forwardRef<HTMLButtonElement, SelectProps>(
       [options, isControlled, onChange, close],
     );
 
-    // Measure and position the portal panel on open and whenever the
-    // viewport geometry changes while open. Hidden until the first
-    // measurement so no misplaced frame ever paints. scrollWidth reports
-    // the full content width (labels never wrap), so the panel grows to
-    // fit its longest line instead of truncating it.
+    // Measure and position the portal panel when it opens, when its
+    // content set changes, and when the viewport resizes. Width comes
+    // from a single content measurement per content set: recomputing it
+    // on every scroll tick lets transient render state (font swaps,
+    // scrollbar thresholds, fractional rects) resize the panel mid-scroll.
+    // Scrolling therefore only tracks position (see the scroll listener
+    // below), keeping dimensions byte-identical while open. Hidden until
+    // the first measurement so no misplaced frame ever paints.
+    // scrollWidth reports the full content width (labels never wrap), so
+    // the panel grows to fit its longest line instead of truncating it.
     const measurePanel = useCallback(() => {
       const trigger = triggerRef.current;
       const list = listRef.current;
-      if (!trigger || !list) return;
+      if (!trigger || !list) return null;
       const rect = trigger.getBoundingClientRect();
       // Reserve room for a vertical scrollbar when the list overflows,
       // so the longest label is never clipped behind it.
       const scrollbarAllowance = list.scrollHeight > list.clientHeight ? 16 : 0;
-      setPlacement(
-        computePanelPlacement(
-          { top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width },
-          list.scrollHeight,
-          { width: window.innerWidth, height: window.innerHeight },
-          PANEL_GAP,
-          list.scrollWidth + scrollbarAllowance,
-        ),
+      return computePanelPlacement(
+        { top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width },
+        list.scrollHeight,
+        { width: window.innerWidth, height: window.innerHeight },
+        PANEL_GAP,
+        list.scrollWidth + scrollbarAllowance,
       );
     }, []);
 
     useEffect(() => {
       if (!isOpen || !mounted) return;
-      measurePanel();
-      window.addEventListener("resize", measurePanel);
-      window.addEventListener("scroll", measurePanel, { capture: true, passive: true });
-      return () => {
-        window.removeEventListener("resize", measurePanel);
-        window.removeEventListener("scroll", measurePanel, { capture: true });
+      setPlacement((previous) => {
+        const next = measurePanel();
+        return next && !isSamePlacement(previous, next) ? next : previous;
+      });
+      const handleResize = () => {
+        // A resize can legitimately change the trigger width and the
+        // viewport clamp, so it takes a full remeasurement.
+        setPlacement((previous) => {
+          const next = measurePanel();
+          return next && !isSamePlacement(previous, next) ? next : previous;
+        });
       };
-    }, [isOpen, mounted, measurePanel, visibleOptions.length]);
+      const handleScroll = () => {
+        // Track the trigger with frozen width and direction: position
+        // follows the page, dimensions stay exactly as measured at open.
+        // Content height is read live (it never changes mid-scroll without
+        // a content update, which takes the full-measure path instead).
+        // No-op frames (e.g. scrolling inside the option list itself)
+        // keep referential state so nothing rerenders.
+        setPlacement((previous) => {
+          if (!previous) return previous;
+          const trigger = triggerRef.current;
+          const list = listRef.current;
+          if (!trigger || !list) return previous;
+          const rect = trigger.getBoundingClientRect();
+          const { top, left } = trackPanelPosition(
+            { top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width },
+            list.scrollHeight,
+            previous.width,
+            previous.upward,
+            { width: window.innerWidth, height: window.innerHeight },
+            PANEL_GAP,
+          );
+          const next: PanelPlacement = { top, left, width: previous.width, upward: previous.upward };
+          return isSamePlacement(previous, next) ? previous : next;
+        });
+      };
+      window.addEventListener("resize", handleResize);
+      window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        window.removeEventListener("scroll", handleScroll, { capture: true });
+      };
+    }, [isOpen, mounted, measurePanel, visibleOptions]);
 
     // Focus the search field when it becomes available.
     useEffect(() => {

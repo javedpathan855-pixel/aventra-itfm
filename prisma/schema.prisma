@@ -123,6 +123,11 @@ model Organization {
   locations   Location[]
   departments Department[]
   locationDepartments LocationDepartment[]
+  assetCategories AssetCategory[]
+  assetModels AssetModel[]
+  assets Asset[]
+  assetAssignments AssetAssignment[]
+  assetHistory AssetHistory[]
 
   // Comprehensive Organization Profile fields
   legalName          String?
@@ -191,6 +196,8 @@ model Member {
   role           String       @default("member")
   createdAt      DateTime     @default(now())
 
+  assetAssignments AssetAssignment[]
+
   @@unique([organizationId, userId])
   @@index([userId])
   @@index([organizationId])
@@ -257,13 +264,14 @@ model Location {
   updatedAt      DateTime @updatedAt
 
   assignments    LocationDepartment[]
+  assetAssignments AssetAssignment[]
+  currentAssets Asset[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
   @@index([organizationId, isActive])
   @@map("location")
 }
-
 // Organizational unit belonging to exactly one organization. Departments
 // may exist without any location assignment. Soft-deactivated via
 // isActive; assignments are preserved across deactivation cycles.
@@ -279,6 +287,8 @@ model Department {
   updatedAt      DateTime @updatedAt
 
   assignments    LocationDepartment[]
+  assetAssignments AssetAssignment[]
+  currentAssets Asset[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -304,4 +314,171 @@ model LocationDepartment {
   @@index([locationId])
   @@index([departmentId])
   @@map("location_department")
+}
+
+// Asset category scoped to one organization. Category codes (and names)
+// are unique within the organization. Deactivation is soft (isActive);
+// categories are never hard-deleted while assets reference them.
+model AssetCategory {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  code           String
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  models AssetModel[]
+  assets Asset[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@map("asset_category")
+}
+
+// Asset model (make/brand + model) within a category and organization.
+// Brand + model name is unique per organization; an optional model code
+// is unique per organization when present (NULLs stay distinct).
+model AssetModel {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  categoryId     String
+  category       AssetCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brand          String
+  modelName      String
+  modelCode      String?
+  description    String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assets Asset[]
+
+  @@unique([organizationId, brand, modelName])
+  @@unique([organizationId, modelCode])
+  @@index([organizationId])
+  @@index([categoryId])
+  @@index([organizationId, isActive])
+  @@map("asset_model")
+}
+
+// Physical/trackable IT asset. Monetary amounts use Decimal — never
+// floating point. `status` tracks the lifecycle (AVAILABLE, ASSIGNED,
+// MAINTENANCE, RETIRED); `archivedAt` is soft archival and excludes the
+// asset from active counts and default listings. `activeAssignmentId` is
+// a nullable unique pointer to the single open assignment; NULLs stay
+// distinct so only the conditional-update guard plus this constraint
+// together prevent concurrent duplicate active assignments.
+model Asset {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assetTag           String
+  name               String
+  description        String?
+  categoryId         String
+  category           AssetCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  modelId            String?
+  model              AssetModel? @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  brand              String?
+  serialNumber       String?
+  purchaseDate       DateTime
+  purchaseCost       Decimal   @db.Decimal(14, 2)
+  currency           String    @default("INR")
+  vendorName         String?
+  invoiceNumber      String?
+  warrantyStartDate  DateTime?
+  warrantyEndDate    DateTime?
+  condition          String    @default("GOOD")
+  status             String    @default("AVAILABLE")
+  currentLocationId  String?
+  currentLocation    Location? @relation(fields: [currentLocationId], references: [id], onDelete: Restrict)
+  currentDepartmentId String?
+  currentDepartment  Department? @relation(fields: [currentDepartmentId], references: [id], onDelete: Restrict)
+  activeAssignmentId String?   @unique
+  activeAssignment   AssetAssignment? @relation("ActiveAssignment", fields: [activeAssignmentId], references: [id], onDelete: SetNull)
+  archivedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  assignments AssetAssignment[] @relation("AssetAssignments")
+  history     AssetHistory[]
+
+  @@unique([organizationId, assetTag])
+  @@unique([organizationId, serialNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([categoryId])
+  @@index([modelId])
+  @@index([currentLocationId])
+  @@index([organizationId, archivedAt])
+  @@map("asset")
+}
+
+// Historical assignment record. One row per handover; `returnedAt`
+// closes it. Names are snapshotted at assignment time so later renames
+// of members, locations or departments never rewrite history. The live
+// membership link is nullable with SetNull: removing a member must not
+// destroy assignment history.
+model AssetAssignment {
+  id               String    @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assetId          String
+  asset            Asset     @relation("AssetAssignments", fields: [assetId], references: [id], onDelete: Restrict)
+  membershipId     String?
+  membership       Member?   @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  assigneeUserId   String
+  assigneeName     String
+  assigneeEmail    String
+  locationId       String
+  location         Location  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  locationName     String
+  departmentId     String?
+  department       Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  departmentName   String?
+  assignedAt       DateTime  @default(now())
+  expectedReturnAt DateTime?
+  returnedAt       DateTime?
+  assignmentCondition String @default("GOOD")
+  returnCondition  String?
+  notes            String?
+  createdBy        String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  activeForAsset Asset? @relation("ActiveAssignment")
+
+  @@index([organizationId])
+  @@index([assetId])
+  @@index([organizationId, assetId])
+  @@index([membershipId])
+  @@map("asset_assignment")
+}
+
+// Queryable per-asset event log backing the detail history timeline and
+// assignment reporting. Complements (never replaces) the stdout security
+// audit log: this table is readable history, the audit logger remains the
+// tamper-evident security trail. Rows are immutable (no updatedAt).
+model AssetHistory {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assetId        String?
+  asset          Asset?   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  eventType      String
+  actorUserId    String?
+  summary        String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([assetId])
+  @@index([organizationId, assetId])
+  @@map("asset_history")
 }
