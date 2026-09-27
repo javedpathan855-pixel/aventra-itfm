@@ -14,6 +14,12 @@ import ForgotPasswordForm from "../forms/forgot-password-form";
 import OtpVerificationForm from "../forms/otp-verification-form";
 import useAuth from "../hooks/use-auth";
 import { getSafeRedirectUrl } from "../../domain/services/auth-helpers";
+import type { InvitationSummaryResult } from "../../application/use-cases/get-invitation-summary.use-case";
+
+interface AuthPageClientProps {
+  initialInvitation?: InvitationSummaryResult | null;
+  invitationToken?: string;
+}
 
 /**
  * Single responsive auth tree (one AuthShowcase + one form instance).
@@ -24,17 +30,39 @@ import { getSafeRedirectUrl } from "../../domain/services/auth-helpers";
  * Mode changes move programmatic focus to the form region for
  * screen-reader users.
  */
-const AuthPageClient = () => {
+const AuthPageClient = ({
+  initialInvitation,
+  invitationToken,
+}: AuthPageClientProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { mode, email, setForgot, setLogin, setRegister, setOtp } = useAuth();
+
+  const invitationContext =
+    initialInvitation && invitationToken
+      ? {
+          token: invitationToken,
+          organizationName: initialInvitation.organizationName,
+          role: initialInvitation.role,
+          email: initialInvitation.email,
+        }
+      : null;
+
+  const { mode, email, setForgot, setLogin, setRegister, setOtp } = useAuth(
+    invitationContext ? "register" : "login",
+  );
   const formRegionRef = useRef<HTMLDivElement>(null);
 
   const rawRedirect =
     searchParams?.get("callbackUrl") ||
     searchParams?.get("redirect") ||
     searchParams?.get("returnTo");
-  const safeRedirect = getSafeRedirectUrl(rawRedirect, "/dashboard");
+  const fallback = invitationToken
+    ? `/invitations/accept?token=${encodeURIComponent(invitationToken)}&autoAccept=true`
+    : "/dashboard";
+  let safeRedirect = getSafeRedirectUrl(rawRedirect, fallback);
+  if (invitationToken && !safeRedirect.includes("autoAccept=")) {
+    safeRedirect += (safeRedirect.includes("?") ? "&" : "?") + "autoAccept=true";
+  }
 
   const handleOtpSuccess = () => {
     router.push(safeRedirect);
@@ -77,6 +105,7 @@ const AuthPageClient = () => {
                   onForgotPassword={setForgot}
                   onRegister={setRegister}
                   onUnverifiedEmail={(unverifiedEmail) => setOtp(unverifiedEmail)}
+                  invitation={invitationContext}
                 />
               )}
               {mode === "register" && (
@@ -84,6 +113,7 @@ const AuthPageClient = () => {
                   key="register"
                   onLogin={setLogin}
                   onRegistered={(registeredEmail) => setOtp(registeredEmail)}
+                  invitation={invitationContext}
                 />
               )}
               {mode === "forgot" && (

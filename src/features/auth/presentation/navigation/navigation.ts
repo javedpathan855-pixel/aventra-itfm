@@ -36,6 +36,11 @@ interface NavigationContext {
 
 const NAVIGATION: readonly NavigationItem[] = [
   { label: "Dashboard", href: "/dashboard", permission: null },
+  {
+    label: "Organization",
+    href: "/organization",
+    permission: { scope: "organization", permission: "organization.read" },
+  },
 ];
 
 /** Filter navigation items by already-resolved roles. Pure. */

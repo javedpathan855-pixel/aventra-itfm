@@ -472,6 +472,16 @@ describe("Invitation summary", () => {
     const summary = await executeGetInvitationSummary({ token }, deps);
     assert.equal(summary.organizationName, "Org A");
     assert.equal(summary.role, "ENGINEER");
+    assert.equal(summary.email, "invitee@x.test");
+
+    // Unauthenticated bearer preview also succeeds
+    const unauthenticatedSummary = await executeGetInvitationSummary(
+      { token },
+      { authorizationRepository: repo },
+    );
+    assert.equal(unauthenticatedSummary.organizationName, "Org A");
+    assert.equal(unauthenticatedSummary.email, "invitee@x.test");
+
     await assert.rejects(
       executeGetInvitationSummary({ token: "00".repeat(32) }, deps),
       (err: unknown) => err instanceof AppError && err.code === "FORBIDDEN",

@@ -34,13 +34,15 @@ interface ResolveAuthorizationInput {
   organizationId?: string | null;
   /** When true, a missing organization selection is rejected. */
   requireOrganization?: boolean;
+  /** When true and no organization is active in session, auto-selects primary/owned membership. */
+  autoSelectDefault?: boolean;
 }
 
 const parseResolveInput = (raw: unknown): ResolveAuthorizationInput => {
   if (raw === undefined || raw === null) return {};
   if (typeof raw !== "object") throw new AppError("VALIDATION_ERROR");
   const record = raw as Record<string, unknown>;
-  const { organizationId, requireOrganization } = record;
+  const { organizationId, requireOrganization, autoSelectDefault } = record;
   if (organizationId !== undefined && organizationId !== null) {
     if (typeof organizationId !== "string" || organizationId.length === 0) {
       throw new AppError("VALIDATION_ERROR");
@@ -49,9 +51,13 @@ const parseResolveInput = (raw: unknown): ResolveAuthorizationInput => {
   if (requireOrganization !== undefined && typeof requireOrganization !== "boolean") {
     throw new AppError("VALIDATION_ERROR");
   }
+  if (autoSelectDefault !== undefined && typeof autoSelectDefault !== "boolean") {
+    throw new AppError("VALIDATION_ERROR");
+  }
   return {
     organizationId: (organizationId as string | null | undefined) ?? null,
     requireOrganization: (requireOrganization as boolean | undefined) ?? false,
+    autoSelectDefault: (autoSelectDefault as boolean | undefined) ?? false,
   };
 };
 
@@ -77,7 +83,19 @@ const resolveAuthorizationContext = async (
     await deps.authorizationRepository.getUserPlatformRole(session.userId),
   );
 
-  const organizationId = input.organizationId ?? session.activeOrganizationId;
+  let organizationId = input.organizationId ?? session.activeOrganizationId;
+  if (!organizationId && input.autoSelectDefault) {
+    const userMemberships = await deps.authorizationRepository.listMembershipsForUser(
+      session.userId,
+    );
+    if (userMemberships.length > 0) {
+      const owned = userMemberships.find(
+        (m) => normalizeOrganizationRole(m.role) === "OWNER",
+      );
+      organizationId = owned ? owned.organizationId : userMemberships[0].organizationId;
+    }
+  }
+
   if (!organizationId) {
     if (input.requireOrganization) {
       throw new AppError("FORBIDDEN", {

@@ -10,6 +10,17 @@ import type {
   WorkspaceInfo,
 } from "../repository/auth-provider";
 import { OTP_MAX_ATTEMPTS } from "../domain/constants/auth-constants";
+import { executeRegister } from "../application/use-cases/register.use-case";
+import { resolveAuthorizationContext } from "../application/authorization/resolve-authorization-context";
+import { requirePermission } from "../application/authorization/guards";
+import { executeListMyOrganizations } from "../application/use-cases/list-my-organizations.use-case";
+import { slugifyOrganizationName } from "../domain/services/auth-helpers";
+import type {
+  AuthorizationRepository,
+  MembershipRecord,
+  MemberWithUser,
+  OrganizationRecord,
+} from "../repository/authorization-repository";
 
 /**
  * Clean Architecture Test Seam: In-memory fake provider implementing AuthProvider
@@ -17,7 +28,11 @@ import { OTP_MAX_ATTEMPTS } from "../domain/constants/auth-constants";
  * with zero network or external dependencies.
  */
 class FakeAuthProvider implements AuthProvider {
-  private users = new Map<string, ProviderUser & { passwordHash: string; otp?: string; otpAttempts: number; resetToken?: string }>();
+  users = new Map<string, ProviderUser & { passwordHash: string; otp?: string; otpAttempts: number; resetToken?: string }>();
+  organizations = new Map<string, { id: string; name: string; slug: string }>();
+  memberships: { id: string; userId: string; organizationId: string; role: string }[] = [];
+  activeSession: { userId: string; email: string; activeOrganizationId: string | null } | null = null;
+  shouldFailOrganizationStage = false;
 
   async findUserByEmail(email: string): Promise<ProviderUser | null> {
     const found = this.users.get(email.toLowerCase());
@@ -70,6 +85,33 @@ class FakeAuthProvider implements AuthProvider {
       otpAttempts: 0,
     };
     this.users.set(normalized, newUser);
+
+    if (this.shouldFailOrganizationStage) {
+      // Simulate compensation: clean up orphan user
+      this.users.delete(normalized);
+      throw new AppError("INTERNAL_ERROR", { message: "Organization creation failed." });
+    }
+
+    let slug = slugifyOrganizationName(input.organizationName);
+    const existingSlug = Array.from(this.organizations.values()).find((o) => o.slug === slug);
+    if (existingSlug) {
+      slug = `${slug}-abcd`;
+    }
+
+    const orgId = `org_${newUser.id}`;
+    const organization = {
+      id: orgId,
+      name: input.organizationName,
+      slug,
+    };
+    this.organizations.set(orgId, organization);
+    this.memberships.push({
+      id: `m_${newUser.id}_${orgId}`,
+      userId: newUser.id,
+      organizationId: orgId,
+      role: "owner",
+    });
+
     return {
       user: {
         id: newUser.id,
@@ -77,11 +119,7 @@ class FakeAuthProvider implements AuthProvider {
         email: newUser.email,
         emailVerified: newUser.emailVerified,
       },
-      organization: {
-        id: `org_${newUser.id}`,
-        name: input.organizationName,
-        slug: input.organizationName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      },
+      organization,
     };
   }
 
@@ -96,6 +134,12 @@ class FakeAuthProvider implements AuthProvider {
       throw new AppError("EMAIL_NOT_VERIFIED");
     }
 
+    this.activeSession = {
+      userId: user.id,
+      email: user.email,
+      activeOrganizationId: null,
+    };
+
     return {
       id: user.id,
       name: user.name,
@@ -104,14 +148,23 @@ class FakeAuthProvider implements AuthProvider {
     };
   }
 
-  async signOut(): Promise<void> {}
-
-  async getSession(): Promise<{ userId: string; email: string; activeOrganizationId: string | null } | null> {
-    return null;
+  async signOut(): Promise<void> {
+    this.activeSession = null;
   }
 
-  async setActiveOrganization(): Promise<WorkspaceInfo> {
-    throw new AppError("FORBIDDEN");
+  async getSession(): Promise<{ userId: string; email: string; activeOrganizationId: string | null } | null> {
+    return this.activeSession;
+  }
+
+  async setActiveOrganization(input: { organizationId: string }): Promise<WorkspaceInfo> {
+    const org = this.organizations.get(input.organizationId);
+    if (!org) {
+      throw new AppError("ORGANIZATION_NOT_FOUND");
+    }
+    if (this.activeSession) {
+      this.activeSession.activeOrganizationId = org.id;
+    }
+    return { id: org.id, name: org.name, slug: org.slug };
   }
 
   async sendVerificationOTP(email: string): Promise<void> {
@@ -143,6 +196,12 @@ class FakeAuthProvider implements AuthProvider {
     user.emailVerified = true;
     user.otp = undefined;
 
+    this.activeSession = {
+      userId: user.id,
+      email: user.email,
+      activeOrganizationId: null,
+    };
+
     return {
       id: user.id,
       name: user.name,
@@ -167,6 +226,68 @@ class FakeAuthProvider implements AuthProvider {
     entry.passwordHash = `hash_${input.newPassword}`;
     entry.resetToken = undefined;
   }
+}
+
+class FakeAuthRepo implements AuthorizationRepository {
+  constructor(private authProvider: FakeAuthProvider) {}
+
+  async getMembership(userId: string, organizationId: string): Promise<MembershipRecord | null> {
+    const m = this.authProvider.memberships.find(
+      (row) => row.userId === userId && row.organizationId === organizationId,
+    );
+    return m ? { ...m } : null;
+  }
+
+  async listMembershipsForUser(userId: string): Promise<MembershipRecord[]> {
+    return this.authProvider.memberships
+      .filter((row) => row.userId === userId)
+      .map((row) => ({ ...row }));
+  }
+
+  async listMembersOfOrganization(organizationId: string): Promise<MemberWithUser[]> {
+    return this.authProvider.memberships
+      .filter((row) => row.organizationId === organizationId)
+      .map((row) => ({
+        id: row.id,
+        userId: row.userId,
+        name: "Test User",
+        email: "test@example.com",
+        role: row.role,
+      }));
+  }
+
+  async getUserPlatformRole(): Promise<string | null> {
+    return null;
+  }
+
+  async getOrganizationById(organizationId: string): Promise<OrganizationRecord | null> {
+    const org = this.authProvider.organizations.get(organizationId);
+    return org ? { ...org } : null;
+  }
+
+  async createInvitation(): Promise<never> {
+    throw new Error("Not implemented");
+  }
+
+  async findPendingInvitation(): Promise<null> {
+    return null;
+  }
+
+  async findInvitationByToken(): Promise<null> {
+    return null;
+  }
+
+  async acceptInvitation(): Promise<never> {
+    throw new Error("Not implemented");
+  }
+
+  async cancelInvitation(): Promise<void> {}
+
+  async updateMemberRole(): Promise<never> {
+    throw new Error("Not implemented");
+  }
+
+  async removeMember(): Promise<void> {}
 }
 
 describe("End-to-End Authentication Workflows (Clean Architecture Port Tests)", () => {
@@ -277,3 +398,183 @@ describe("End-to-End Authentication Workflows (Clean Architecture Port Tests)", 
     assert.equal(user.email, email);
   });
 });
+
+describe("Organization Onboarding Workflow (End-to-End Clean Architecture Integration)", () => {
+  it("completes full journey: register workspace -> owner membership -> OTP verification -> dashboard auto-resolution", async () => {
+    const auth = new FakeAuthProvider();
+    const repo = new FakeAuthRepo(auth);
+    const email = "owner@enterprise-itfm.com";
+
+    // 1. Visitor submits valid workspace registration form
+    const registerResult = await executeRegister(
+      {
+        name: "Enterprise Founder",
+        email,
+        organizationName: "Aventra Global Systems",
+        password: "SuperSecurePassword123!",
+        confirmPassword: "SuperSecurePassword123!",
+        termsAccepted: true,
+      },
+      { authProvider: auth },
+    );
+
+    assert.equal(registerResult.requiresVerification, true);
+    assert.equal(registerResult.user.email, email);
+    assert.equal(registerResult.organization.name, "Aventra Global Systems");
+    assert.equal(registerResult.organization.slug, "aventra-global-systems");
+
+    // 2. Initial owner membership is created with owner role
+    const membership = auth.memberships.find(
+      (m) => m.userId === registerResult.user.id && m.organizationId === registerResult.organization.id,
+    );
+    assert.ok(membership, "Initial membership must exist");
+    assert.equal(membership?.role, "owner");
+
+    // 3. User is unverified; before verification, session is null -> accessing dashboard rejects
+    await assert.rejects(
+      async () => {
+        await resolveAuthorizationContext(
+          { autoSelectDefault: true },
+          { getSession: () => auth.getSession(), authorizationRepository: repo },
+        );
+      },
+      (err: unknown) => err instanceof AppError && err.code === "UNAUTHENTICATED",
+    );
+
+    // 4. User verifies OTP
+    const verifiedUser = await auth.verifyEmailOTP({ email, otp: "888999" });
+    assert.equal(verifiedUser.emailVerified, true);
+
+    // 5. User accesses dashboard -> session is valid, active organization auto-resolves to newly onboarded org
+    const context = await resolveAuthorizationContext(
+      { autoSelectDefault: true },
+      { getSession: () => auth.getSession(), authorizationRepository: repo },
+    );
+
+    assert.equal(context.userId, registerResult.user.id);
+    assert.equal(context.email, email);
+    assert.equal(context.organizationId, registerResult.organization.id);
+    assert.equal(context.organizationRole, "OWNER");
+    assert.equal(context.organization?.name, "Aventra Global Systems");
+    assert.equal(context.organization?.slug, "aventra-global-systems");
+
+    // 6. Registered owner possesses full owner privileges
+    assert.doesNotThrow(() => {
+      requirePermission(context, "organization.delete");
+      requirePermission(context, "member.invite");
+      requirePermission(context, "member.updateRole");
+    });
+
+    // 7. Dashboard organization listing shows newly onboarded organization as active
+    const orgsResult = await executeListMyOrganizations(
+      { autoSelectDefault: true },
+      { getSession: () => auth.getSession(), authorizationRepository: repo },
+    );
+    assert.equal(orgsResult.organizations.length, 1);
+    assert.equal(orgsResult.organizations[0].organizationId, registerResult.organization.id);
+    assert.equal(orgsResult.organizations[0].active, true);
+    assert.equal(orgsResult.organizations[0].role, "OWNER");
+  });
+
+  it("handles duplicate email safely without creating orphan organization", async () => {
+    const auth = new FakeAuthProvider();
+    const email = "existing@company.com";
+
+    // First user registers
+    await executeRegister(
+      {
+        name: "Original User",
+        email,
+        organizationName: "First Corp",
+        password: "Password123!",
+        confirmPassword: "Password123!",
+        termsAccepted: true,
+      },
+      { authProvider: auth },
+    );
+    assert.equal(auth.organizations.size, 1);
+
+    // Second registration with same email (normalized) -> CONFLICT
+    await assert.rejects(
+      async () => {
+        await executeRegister(
+          {
+            name: "Duplicate Attempt",
+            email: "  Existing@Company.COM  ",
+            organizationName: "Second Corp",
+            password: "Password123!",
+            confirmPassword: "Password123!",
+            termsAccepted: true,
+          },
+          { authProvider: auth },
+        );
+      },
+      (err: unknown) => err instanceof AppError && err.code === "CONFLICT",
+    );
+
+    // No second organization was created
+    assert.equal(auth.organizations.size, 1);
+  });
+
+  it("handles duplicate organization names with collision-safe slugs", async () => {
+    const auth = new FakeAuthProvider();
+
+    const first = await executeRegister(
+      {
+        name: "First Founder",
+        email: "first@example.com",
+        organizationName: "Apex Logistics",
+        password: "Password123!",
+        confirmPassword: "Password123!",
+        termsAccepted: true,
+      },
+      { authProvider: auth },
+    );
+
+    const second = await executeRegister(
+      {
+        name: "Second Founder",
+        email: "second@example.com",
+        organizationName: "Apex Logistics",
+        password: "Password123!",
+        confirmPassword: "Password123!",
+        termsAccepted: true,
+      },
+      { authProvider: auth },
+    );
+
+    assert.equal(first.organization.name, "Apex Logistics");
+    assert.equal(second.organization.name, "Apex Logistics");
+    assert.equal(first.organization.slug, "apex-logistics");
+    assert.equal(second.organization.slug, "apex-logistics-abcd");
+    assert.notEqual(first.organization.id, second.organization.id);
+  });
+
+  it("compensates and cleans up user if organization creation fails", async () => {
+    const auth = new FakeAuthProvider();
+    auth.shouldFailOrganizationStage = true;
+
+    await assert.rejects(
+      async () => {
+        await executeRegister(
+          {
+            name: "Unlucky User",
+            email: "unlucky@test.com",
+            organizationName: "Failed Corp",
+            password: "Password123!",
+            confirmPassword: "Password123!",
+            termsAccepted: true,
+          },
+          { authProvider: auth },
+        );
+      },
+      (err: unknown) => err instanceof AppError && err.code === "INTERNAL_ERROR",
+    );
+
+    // User is cleaned up (compensated) — no orphan user in persistence
+    const user = await auth.findUserByEmail("unlucky@test.com");
+    assert.equal(user, null);
+    assert.equal(auth.organizations.size, 0);
+  });
+});
+

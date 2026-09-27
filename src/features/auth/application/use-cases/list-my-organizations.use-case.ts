@@ -32,7 +32,7 @@ const executeListMyOrganizations = async (
     throw new AppError("VALIDATION_ERROR");
   }
   try {
-    const context = await resolveAuthorizationContext({}, deps);
+    const context = await resolveAuthorizationContext(rawInput, deps);
     requireAuthenticated(context);
     const memberships = await deps.authorizationRepository.listMembershipsForUser(
       context.userId,

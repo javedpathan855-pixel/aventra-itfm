@@ -88,7 +88,7 @@ describe("Dashboard Shell presentation utilities", () => {
     it("only ships live routes that actually exist in the application", () => {
       assert.deepEqual(
         NAVIGATION.map((item) => item.href),
-        ["/dashboard"],
+        ["/dashboard", "/organization"],
       );
     });
 
@@ -98,9 +98,13 @@ describe("Dashboard Shell presentation utilities", () => {
           organizationRole: role,
           platformRole: null,
         });
-        assert.equal(items.length, 1);
-        assert.equal(items[0].href, "/dashboard");
-        assert.equal(items[0].label, "Dashboard");
+        assert.ok(items.some((item) => item.href === "/dashboard"));
+        if (role === "OWNER" || role === "ADMIN") {
+          assert.ok(items.some((item) => item.href === "/organization"));
+          assert.equal(items.length, 2);
+        } else {
+          assert.equal(items.length, 1);
+        }
       }
     });
 

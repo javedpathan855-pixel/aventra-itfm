@@ -58,6 +58,34 @@ export const registerSchema = z
 
 export type RegisterFormData = z.infer<typeof registerSchema>;
 
+export const registerInvitedUserSchema = z
+  .object({
+    token: z.string().min(1, "Invitation token is required"),
+    name: z
+      .string()
+      .trim()
+      .min(2, "Full name must be at least 2 characters")
+      .max(70, "Full name is too long"),
+    email: z
+      .string()
+      .trim()
+      .min(1, "Email is required")
+      .email("Please enter a valid email address"),
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+    termsAccepted: z
+      .boolean()
+      .refine((value) => value === true, {
+        message: "Please accept the Terms of Service and Privacy Policy to continue.",
+      }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export type RegisterInvitedUserFormData = z.infer<typeof registerInvitedUserSchema>;
+
 export const forgotPasswordSchema = z.object({
   email: z
     .string()

@@ -41,7 +41,7 @@ describe("Authorization-aware navigation", () => {
   it("ships only existing routes in the live definition", () => {
     assert.deepEqual(
       NAVIGATION.map((item) => item.href),
-      ["/dashboard"],
+      ["/dashboard", "/organization"],
     );
   });
 });

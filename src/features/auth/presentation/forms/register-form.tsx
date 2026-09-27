@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, Lock, Mail, User } from "lucide-react";
 import { motion } from "framer-motion";
@@ -21,23 +21,38 @@ import { toast } from "@/shared/components/ui/toast";
 import { authFormModeVariants } from "@/shared/animation";
 import {
   registerSchema,
+  registerInvitedUserSchema,
   type RegisterFormData,
 } from "../../domain/schemas/auth.schema";
-import { registerWorkspaceAction } from "@/app/(auth)/auth/register-action";
+import {
+  registerWorkspaceAction,
+  registerInvitedUserAction,
+} from "@/app/(auth)/auth/register-action";
 
 interface RegisterFormProps {
   onLogin: () => void;
   onRegistered: (email: string) => void;
+  invitation?: {
+    token: string;
+    organizationName: string;
+    role: string;
+    email: string;
+  } | null;
 }
 
-const RegisterForm = ({ onLogin, onRegistered }: RegisterFormProps) => {
+type CombinedFormData = RegisterFormData & { token?: string };
+
+const RegisterForm = ({ onLogin, onRegistered, invitation }: RegisterFormProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const form = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+  const form = useForm<CombinedFormData>({
+    resolver: zodResolver(
+      invitation ? registerInvitedUserSchema : registerSchema,
+    ) as unknown as Resolver<CombinedFormData>,
     defaultValues: {
+      token: invitation?.token ?? "",
       name: "",
-      email: "",
+      email: invitation?.email ?? "",
       organizationName: "",
       password: "",
       confirmPassword: "",
@@ -50,9 +65,40 @@ const RegisterForm = ({ onLogin, onRegistered }: RegisterFormProps) => {
     setErrorMessage(null);
 
     try {
-      // Server boundary: validation, normalization, user + organization +
-      // owner membership, and error mapping all happen in the use case.
-      // The form only transports validated input and renders safe results.
+      if (invitation) {
+        // Invited registration: creates credential account only — NO organization created.
+        const result = await registerInvitedUserAction({
+          token: invitation.token,
+          name: data.name,
+          email: invitation.email,
+          password: data.password,
+          confirmPassword: data.confirmPassword,
+          termsAccepted: data.termsAccepted,
+        });
+
+        if (!result.ok) {
+          const errorText =
+            result.code === "CONFLICT"
+              ? "An account with this email address already exists. Please sign in."
+              : result.code === "RATE_LIMITED"
+                ? "Too many registration attempts. Please wait a moment and try again."
+                : result.message || "Could not complete registration. Please verify your details.";
+          setErrorMessage(errorText);
+          toast.error("Registration Failed", { description: errorText });
+          return;
+        }
+
+        toast.success("Account Created", {
+          description:
+            "We sent a 6-digit verification code to your email. Please verify to continue.",
+          duration: 6000,
+        });
+
+        onRegistered(result.email!);
+        return;
+      }
+
+      // Normal workspace registration: creates user + organization + owner membership
       const result = await registerWorkspaceAction(data);
 
       if (!result.ok) {
@@ -94,14 +140,31 @@ const RegisterForm = ({ onLogin, onRegistered }: RegisterFormProps) => {
       exit="exit"
       className="flex w-full h-full flex-col justify-center items-center gap-2 sm:gap-3"
     >
-      <Card className="max-w-md w-full flex flex-col gap-3 sm:gap-4 lg:gap-5 items-center justify-center p-4 sm:p-5 lg:p-7">
-        <div className="flex flex-col gap-0.5 sm:gap-1 w-full text-left">
-          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-foreground">
-            Create an Account
-          </h2>
-          <p className="text-[11px] sm:text-xs text-muted">
-            Register your enterprise workspace for IT Financial Management
-          </p>
+      <Card className="max-w-md w-full flex flex-col gap-3 sm:gap-4 lg:gap-5 items-center justify-center p-4 sm:p-5 lg:p-7 border-border/60">
+        <div className="flex flex-col gap-1 w-full text-left">
+          {invitation ? (
+            <div className="flex flex-col gap-1">
+              <div className="inline-flex items-center gap-1.5 self-start rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                <span>Joining</span>
+                <span className="font-semibold text-foreground">{invitation.organizationName}</span>
+              </div>
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-foreground pt-0.5">
+                Create an Account
+              </h2>
+              <p className="text-[11px] sm:text-xs text-muted">
+                You&apos;re joining as <span className="font-semibold text-primary uppercase">{invitation.role}</span>
+              </p>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-foreground">
+                Create an Account
+              </h2>
+              <p className="text-[11px] sm:text-xs text-muted">
+                Register your enterprise workspace for IT Financial Management
+              </p>
+            </>
+          )}
         </div>
 
         {errorMessage && (
@@ -145,44 +208,55 @@ const RegisterForm = ({ onLogin, onRegistered }: RegisterFormProps) => {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-xs sm:text-sm">Work Email</FormLabel>
+                  <FormLabel className="text-xs sm:text-sm">
+                    {invitation ? "Invited Email" : "Work Email"}
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="email"
                       placeholder="name@company.com"
                       autoComplete="email"
+                      readOnly={Boolean(invitation)}
                       startIcon={<Mail className="h-4 w-4" />}
                       disabled={form.formState.isSubmitting}
+                      className={invitation ? "bg-surface-muted/50 cursor-not-allowed select-none opacity-90" : undefined}
                       {...field}
                     />
                   </FormControl>
+                  {invitation && (
+                    <p className="text-[11px] text-muted">
+                      This email address is locked to your organization invitation.
+                    </p>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="organizationName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs sm:text-sm">
-                    Organization Name
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="text"
-                      placeholder="Acme Technologies"
-                      autoComplete="organization"
-                      startIcon={<Building2 className="h-4 w-4" />}
-                      disabled={form.formState.isSubmitting}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {!invitation && (
+              <FormField
+                control={form.control}
+                name="organizationName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs sm:text-sm">
+                      Organization Name
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="Acme Technologies"
+                        autoComplete="organization"
+                        startIcon={<Building2 className="h-4 w-4" />}
+                        disabled={form.formState.isSubmitting}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}
@@ -260,7 +334,11 @@ const RegisterForm = ({ onLogin, onRegistered }: RegisterFormProps) => {
               isLoading={form.formState.isSubmitting}
               disabled={form.formState.isSubmitting}
             >
-              {form.formState.isSubmitting ? "Registering..." : "Register & Continue"}
+              {form.formState.isSubmitting
+                ? "Creating account..."
+                : invitation
+                  ? "Create Account & Join"
+                  : "Register & Continue"}
             </Button>
           </form>
         </Form>
@@ -272,7 +350,7 @@ const RegisterForm = ({ onLogin, onRegistered }: RegisterFormProps) => {
           type="button"
           onClick={onLogin}
           variant="link"
-          className="text-[11px] sm:text-xs p-0 h-auto"
+          className="text-[11px] sm:text-xs p-0 h-auto font-medium text-primary hover:text-primary-hover"
         >
           Sign in
         </Button>
