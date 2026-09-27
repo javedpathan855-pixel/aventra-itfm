@@ -29,8 +29,9 @@ const acceptInvitationAction = async (token: unknown): Promise<never> => {
   if (limited) {
     back(rawToken, "RATE_LIMITED");
   }
+  let organizationId: string | null = null;
   try {
-    await executeAcceptInvitation(
+    const result = await executeAcceptInvitation(
       { token: rawToken },
       {
         getSession: () => betterAuthProvider.getSession(),
@@ -38,10 +39,28 @@ const acceptInvitationAction = async (token: unknown): Promise<never> => {
         auditLog: auditLogger,
       },
     );
+    organizationId = result.organizationId;
   } catch (error) {
     back(rawToken, error instanceof AppError ? error.code : "INTERNAL_ERROR");
   }
+
+  if (organizationId) {
+    try {
+      await betterAuthProvider.setActiveOrganization({ organizationId });
+    } catch {
+      // Non-fatal if setting active organization fails; dashboard resolver will select it
+    }
+  }
+
   redirect("/dashboard");
 };
 
-export { acceptInvitationAction };
+const signOutAndSwitchAction = async (token: unknown): Promise<never> => {
+  const rawToken = typeof token === "string" ? token : "";
+  await betterAuthProvider.signOut();
+  redirect(
+    `/auth?callbackUrl=${encodeURIComponent(`/invitations/accept?token=${encodeURIComponent(rawToken)}&autoAccept=true`)}&token=${encodeURIComponent(rawToken)}`,
+  );
+};
+
+export { acceptInvitationAction, signOutAndSwitchAction };

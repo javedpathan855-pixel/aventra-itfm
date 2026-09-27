@@ -151,6 +151,12 @@ export const DashboardUserMenu = ({
                 <Check className="h-3.5 w-3.5 text-primary shrink-0 ml-2" aria-hidden="true" />
               </div>
             </div>
+            <DropdownItem
+              onClick={() => router.push("/organization")}
+            >
+              <Building2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>Organization Settings</span>
+            </DropdownItem>
           </>
         )}
 

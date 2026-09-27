@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   NAVIGATION,
   filterNavigation,
+  hasActiveNavChild,
+  isNavHrefActive,
   type NavigationItem,
 } from "../presentation/navigation/navigation";
 
@@ -41,7 +43,48 @@ describe("Authorization-aware navigation", () => {
   it("ships only existing routes in the live definition", () => {
     assert.deepEqual(
       NAVIGATION.map((item) => item.href),
-      ["/dashboard"],
+      ["/dashboard", "/organization"],
     );
+    const organization = NAVIGATION.find((item) => item.href === "/organization");
+    assert.deepEqual(
+      organization?.children?.map((child) => child.href),
+      ["/organization", "/organization/locations", "/organization/departments"],
+    );
+  });
+
+  it("keeps permitted children when the parent landing page is hidden", () => {
+    const engineer = filterNavigation(NAVIGATION, { organizationRole: "ENGINEER", platformRole: null });
+    const organization = engineer.find((item) => item.label === "Organization");
+    assert.ok(organization);
+    assert.deepEqual(
+      organization?.children?.map((child) => child.href),
+      ["/organization/locations", "/organization/departments"],
+    );
+  });
+
+  it("drops groups with no visible children", () => {
+    const root = filterNavigation(NAVIGATION, { organizationRole: null, platformRole: "SUPERADMIN" });
+    assert.equal(root.length, 1);
+    assert.equal(root[0].href, "/dashboard");
+  });
+});
+
+describe("Route matching semantics", () => {
+  it("matches leaf routes exactly, never by prefix", () => {
+    assert.equal(isNavHrefActive("/organization/locations", "/organization/locations"), true);
+    assert.equal(isNavHrefActive("/organization/locations", "/organization"), false);
+    assert.equal(isNavHrefActive("/organization", "/organization"), true);
+    assert.equal(isNavHrefActive("/dashboard", "/dashboard"), true);
+    assert.equal(isNavHrefActive("/dashboard/settings", "/dashboard"), false);
+    assert.equal(isNavHrefActive(null, "/organization"), false);
+  });
+
+  it("expands a parent only when a child exactly matches", () => {
+    const children = [{ href: "/organization" }, { href: "/organization/locations" }];
+    assert.equal(hasActiveNavChild("/organization/locations", children), true);
+    assert.equal(hasActiveNavChild("/organization", children), true);
+    assert.equal(hasActiveNavChild("/dashboard", children), false);
+    assert.equal(hasActiveNavChild(null, children), false);
+    assert.equal(hasActiveNavChild("/organization/locations/extra", children), false);
   });
 });

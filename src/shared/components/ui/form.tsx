@@ -127,14 +127,21 @@ const FormControl = ({ children }: FormControlProps) => {
     useFormField();
 
   if (isValidElement(children)) {
-    return cloneElement(children as ReactElement<Record<string, unknown>>, {
+    const isCustomComponent = typeof children.type !== "string";
+    const extraProps: Record<string, unknown> = {
       id: formItemId,
       "aria-describedby": error
         ? `${formDescriptionId} ${formMessageId}`
         : formDescriptionId,
       "aria-invalid": Boolean(error),
-      error: Boolean(error),
-    });
+    };
+    if (isCustomComponent) {
+      extraProps.error = Boolean(error);
+    }
+    return cloneElement(
+      children as ReactElement<Record<string, unknown>>,
+      extraProps,
+    );
   }
 
   return <div id={formItemId}>{children}</div>;

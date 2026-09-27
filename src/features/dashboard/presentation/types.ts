@@ -29,6 +29,7 @@ export interface DashboardOrganizationItem {
 export interface DashboardNavItemViewModel {
   label: string;
   href: string;
+  children?: readonly DashboardNavItemViewModel[];
 }
 
 export interface DashboardShellProps {
@@ -36,5 +37,11 @@ export interface DashboardShellProps {
   activeOrganization: DashboardOrgViewModel | null;
   organizations: DashboardOrganizationItem[];
   navigationItems: DashboardNavItemViewModel[];
-  children: ReactNode;
+  children?: ReactNode;
+  /**
+   * Override for the main content container. Defaults to the centered
+   * constrained layout; sections needing the full content width (e.g.
+   * organization management) pass "w-full".
+   */
+  contentClassName?: string;
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import cn from "@/shared/utils/cn";
 import { DashboardNavItem } from "./dashboard-nav-item";
+import { DashboardNavGroup } from "./dashboard-nav-group";
 import { DashboardOrganizationSwitcher } from "./dashboard-organization-switcher";
 import { DashboardUserMenu } from "./dashboard-user-menu";
 import type {
@@ -109,7 +110,7 @@ export const DashboardMobileNav = ({
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
-            className="fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[85vw] flex-col border-r border-border bg-surface shadow-card animate-in slide-in-from-left duration-200"
+            className="fixed inset-y-0 left-0 z-50 flex h-full w-72 max-w-[85vw] flex-col bg-background shadow-card animate-in slide-in-from-left duration-200"
           >
             {/* Drawer Header */}
             <div className="flex h-16 items-center justify-between border-b border-border px-4 shrink-0">
@@ -160,14 +161,23 @@ export const DashboardMobileNav = ({
                     Main
                   </div>
                   <ul className="space-y-1">
-                    {navigationItems.map((item) => (
-                      <DashboardNavItem
-                        key={item.href}
-                        href={item.href}
-                        label={item.label}
-                        onNavigate={handleClose}
-                      />
-                    ))}
+                    {navigationItems.map((item) =>
+                      item.children && item.children.length > 0 ? (
+                        <DashboardNavGroup
+                          key={item.href || item.label}
+                          label={item.label}
+                          items={item.children ?? []}
+                          onNavigate={handleClose}
+                        />
+                      ) : (
+                        <DashboardNavItem
+                          key={item.href}
+                          href={item.href}
+                          label={item.label}
+                          onNavigate={handleClose}
+                        />
+                      ),
+                    )}
                   </ul>
                 </div>
               </div>

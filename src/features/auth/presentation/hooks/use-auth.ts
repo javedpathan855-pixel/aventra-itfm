@@ -19,13 +19,13 @@ const isAuthMode = (value: string | null): value is AuthMode =>
  * links are deep-linkable and survive refresh; `email` stays local (never
  * in the URL — it is PII for the OTP step only).
  */
-const useAuth = () => {
+const useAuth = (defaultMode?: AuthMode) => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const initialMode = isAuthMode(searchParams?.get("mode") ?? null)
     ? (searchParams?.get("mode") as AuthMode)
-    : "login";
+    : (defaultMode ?? "login");
 
   const [mode, setModeState] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState<string>("");
@@ -33,9 +33,11 @@ const useAuth = () => {
   const setMode = useCallback(
     (next: AuthMode) => {
       setModeState(next);
-      router.replace(`/auth?mode=${next}`, { scroll: false });
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      params.set("mode", next);
+      router.replace(`/auth?${params.toString()}`, { scroll: false });
     },
-    [router],
+    [router, searchParams],
   );
 
   const setLogin = useCallback(() => setMode("login"), [setMode]);

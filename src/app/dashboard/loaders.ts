@@ -17,8 +17,8 @@ export const getDashboardServerContext = cache(async () => {
     authorizationRepository: prismaAuthorizationRepository,
   };
 
-  const context = await resolveAuthorizationContext({}, deps);
-  const { organizations } = await executeListMyOrganizations({}, deps);
+  const context = await resolveAuthorizationContext({ autoSelectDefault: true }, deps);
+  const { organizations } = await executeListMyOrganizations({ autoSelectDefault: true }, deps);
 
   return { context, organizations };
 });

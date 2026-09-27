@@ -8,6 +8,8 @@ import { getInitials } from "@/shared/components/ui/avatar";
 import {
   NAVIGATION,
   filterNavigation,
+  hasActiveNavChild,
+  isNavHrefActive,
   type NavigationItem,
 } from "@/features/auth/presentation/navigation/navigation";
 import type { AuthorizationContext } from "@/features/auth/domain/authorization/authorization-context";
@@ -65,22 +67,32 @@ describe("Dashboard Shell presentation utilities", () => {
   });
 
   describe("Active route derivation", () => {
-    const isRouteActive = (pathname: string, href: string): boolean =>
-      pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
-
-    it("marks /dashboard active when current pathname is exactly /dashboard", () => {
-      assert.equal(isRouteActive("/dashboard", "/dashboard"), true);
+    it("marks /dashboard active only on exact match", () => {
+      assert.equal(isNavHrefActive("/dashboard", "/dashboard"), true);
     });
 
     it("does not falsely mark /dashboard active for unrelated routes", () => {
-      assert.equal(isRouteActive("/auth", "/dashboard"), false);
-      assert.equal(isRouteActive("/showcase", "/dashboard"), false);
-      assert.equal(isRouteActive("/invitations/accept", "/dashboard"), false);
+      assert.equal(isNavHrefActive("/auth", "/dashboard"), false);
+      assert.equal(isNavHrefActive("/showcase", "/dashboard"), false);
+      assert.equal(isNavHrefActive("/invitations/accept", "/dashboard"), false);
     });
 
-    it("marks subroutes active for specific feature prefixes", () => {
-      assert.equal(isRouteActive("/dashboard/members/123", "/dashboard/members"), true);
-      assert.equal(isRouteActive("/dashboard/settings", "/dashboard/members"), false);
+    it("uses exact matching for leaf routes, never prefix matching", () => {
+      assert.equal(isNavHrefActive("/organization/locations", "/organization/locations"), true);
+      assert.equal(isNavHrefActive("/organization/locations", "/organization"), false);
+      assert.equal(isNavHrefActive("/organization/departments/123", "/organization/departments"), false);
+      assert.equal(isNavHrefActive(null, "/dashboard"), false);
+    });
+
+    it("detects an active child without activating the parent itself", () => {
+      const children = [
+        { href: "/organization" },
+        { href: "/organization/locations" },
+        { href: "/organization/departments" },
+      ];
+      assert.equal(hasActiveNavChild("/organization/locations", children), true);
+      assert.equal(hasActiveNavChild("/dashboard", children), false);
+      assert.equal(hasActiveNavChild(null, children), false);
     });
   });
 
@@ -88,7 +100,12 @@ describe("Dashboard Shell presentation utilities", () => {
     it("only ships live routes that actually exist in the application", () => {
       assert.deepEqual(
         NAVIGATION.map((item) => item.href),
-        ["/dashboard"],
+        ["/dashboard", "/organization"],
+      );
+      const organization = NAVIGATION.find((item) => item.href === "/organization");
+      assert.deepEqual(
+        organization?.children?.map((child) => child.href),
+        ["/organization", "/organization/locations", "/organization/departments"],
       );
     });
 
@@ -98,9 +115,21 @@ describe("Dashboard Shell presentation utilities", () => {
           organizationRole: role,
           platformRole: null,
         });
-        assert.equal(items.length, 1);
-        assert.equal(items[0].href, "/dashboard");
-        assert.equal(items[0].label, "Dashboard");
+        assert.ok(items.some((item) => item.href === "/dashboard"));
+        const organization = items.find((item) => item.href === "/organization");
+        assert.ok(organization);
+        const childHrefs = organization?.children?.map((child) => child.href) ?? [];
+        if (role === "OWNER" || role === "ADMIN") {
+          assert.deepEqual(childHrefs, [
+            "/organization",
+            "/organization/locations",
+            "/organization/departments",
+          ]);
+        } else {
+          // Roles without organization.read keep the group for its
+          // permitted children, never the landing page itself.
+          assert.deepEqual(childHrefs, ["/organization/locations", "/organization/departments"]);
+        }
       }
     });
 

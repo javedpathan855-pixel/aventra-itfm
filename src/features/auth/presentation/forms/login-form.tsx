@@ -37,6 +37,12 @@ interface LoginFormProps {
   onRegister?: () => void;
   onUnverifiedEmail?: (email: string) => void;
   onSubmit?: (data: LoginFormData) => void;
+  invitation?: {
+    token: string;
+    organizationName: string;
+    role: string;
+    email: string;
+  } | null;
 }
 
 const GoogleIcon = () => (
@@ -65,6 +71,7 @@ const LoginForm = ({
   onRegister,
   onUnverifiedEmail,
   onSubmit,
+  invitation,
 }: LoginFormProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -73,7 +80,7 @@ const LoginForm = ({
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      email: invitation?.email ?? "",
       password: "",
       remember: false,
     },
@@ -147,7 +154,13 @@ const LoginForm = ({
         searchParams?.get("callbackUrl") ||
         searchParams?.get("redirect") ||
         searchParams?.get("returnTo");
-      const safeRedirect = getSafeRedirectUrl(rawRedirect, "/dashboard");
+      const fallback = invitation
+        ? `/invitations/accept?token=${encodeURIComponent(invitation.token)}&autoAccept=true`
+        : "/dashboard";
+      let safeRedirect = getSafeRedirectUrl(rawRedirect, fallback);
+      if (invitation && !safeRedirect.includes("autoAccept=")) {
+        safeRedirect += (safeRedirect.includes("?") ? "&" : "?") + "autoAccept=true";
+      }
 
       router.push(safeRedirect);
     } catch (err: unknown) {
@@ -166,14 +179,31 @@ const LoginForm = ({
       exit="exit"
       className="flex w-full h-full flex-col justify-center items-center gap-2 sm:gap-3"
     >
-      <Card className="max-w-md w-full flex flex-col gap-3 sm:gap-4 lg:gap-5 items-center justify-center p-4 sm:p-5 lg:p-7">
-        <div className="flex flex-col gap-0.5 sm:gap-1 w-full text-left">
-          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-foreground">
-            Sign In
-          </h2>
-          <p className="text-[11px] sm:text-xs text-muted">
-            Enter your credentials to access your ITFM dashboard
-          </p>
+      <Card className="max-w-md w-full flex flex-col gap-3 sm:gap-4 lg:gap-5 items-center justify-center p-4 sm:p-5 lg:p-7 border-border/60">
+        <div className="flex flex-col gap-1 w-full text-left">
+          {invitation ? (
+            <div className="flex flex-col gap-1">
+              <div className="inline-flex items-center gap-1.5 self-start rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                <span>Joining</span>
+                <span className="font-semibold text-foreground">{invitation.organizationName}</span>
+              </div>
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-foreground pt-0.5">
+                Sign In
+              </h2>
+              <p className="text-[11px] sm:text-xs text-muted">
+                Sign in with your account to accept your <span className="font-semibold text-primary uppercase">{invitation.role}</span> invitation
+              </p>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-foreground">
+                Sign In
+              </h2>
+              <p className="text-[11px] sm:text-xs text-muted">
+                Enter your credentials to access your ITFM dashboard
+              </p>
+            </>
+          )}
         </div>
 
         {errorMessage && (
@@ -298,14 +328,14 @@ const LoginForm = ({
       </Card>
 
       <div className="flex items-center justify-center gap-1.5 text-[11px] sm:text-xs text-muted">
-        <span>Need an account?</span>
+        <span>{invitation ? "New to Aventra ITFM?" : "Need an account?"}</span>
         <Button
           type="button"
           onClick={onRegister}
           variant="link"
-          className="text-[11px] sm:text-xs p-0 h-auto font-medium"
+          className="text-[11px] sm:text-xs p-0 h-auto font-medium text-primary hover:text-primary-hover"
         >
-          Register workspace
+          {invitation ? "Create an account" : "Register workspace"}
         </Button>
       </div>
     </motion.div>

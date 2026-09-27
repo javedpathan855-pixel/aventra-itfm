@@ -144,6 +144,37 @@ export const DropdownContent = ({
   const { isOpen, close, triggerRef, menuId } = useDropdown();
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // Auto-focus first interactive item or menu container on open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const firstItem = contentRef.current?.querySelector<HTMLElement>(
+      '[role="menuitem"]:not([aria-disabled="true"]):not([disabled])',
+    );
+    if (firstItem) {
+      firstItem.focus();
+    } else {
+      contentRef.current?.focus();
+    }
+  }, [isOpen]);
+
+  // Handle document Escape key to close menu and restore focus to trigger
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+      }
+    };
+
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [isOpen, close]);
+
   // Close on outside click
   useEffect(() => {
     if (!isOpen) return;

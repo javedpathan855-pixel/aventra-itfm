@@ -274,6 +274,59 @@ describe("Authorization context resolver", () => {
     assert.equal(context.platformRole, "SUPERADMIN");
     assert.equal(context.organizationRole, null);
   });
+
+  it("auto-selects owned organization when autoSelectDefault is true and session has no active organization", async () => {
+    const context = await resolveAuthorizationContext(
+      { autoSelectDefault: true },
+      { getSession: sessionFor("user-a", null), authorizationRepository: repo },
+    );
+    assert.equal(context.userId, "user-a");
+    assert.equal(context.organizationId, "org-a");
+    assert.equal(context.organizationRole, "OWNER");
+    assert.equal(context.organization?.name, "Org A");
+  });
+
+  it("auto-selects first membership if user has no owned organization and autoSelectDefault is true", async () => {
+    const context = await resolveAuthorizationContext(
+      { autoSelectDefault: true },
+      { getSession: sessionFor("user-c", null), authorizationRepository: repo },
+    );
+    assert.equal(context.userId, "user-c");
+    assert.equal(context.organizationId, "org-a");
+    assert.equal(context.organizationRole, "ENGINEER");
+  });
+
+  it("returns org-less context when autoSelectDefault is true but user has no memberships", async () => {
+    repo.users.set("user-lonely", { platformRole: null });
+    const context = await resolveAuthorizationContext(
+      { autoSelectDefault: true },
+      { getSession: sessionFor("user-lonely", null), authorizationRepository: repo },
+    );
+    assert.equal(context.userId, "user-lonely");
+    assert.equal(context.organizationId, null);
+    assert.equal(context.organizationRole, null);
+    assert.equal(context.organization, null);
+  });
+
+  it("respects session.activeOrganizationId over autoSelectDefault", async () => {
+    repo.memberships.push({ id: "m-b-user", userId: "user-a", organizationId: "org-b", role: "USER" });
+    const context = await resolveAuthorizationContext(
+      { autoSelectDefault: true },
+      { getSession: sessionFor("user-a", "org-b"), authorizationRepository: repo },
+    );
+    assert.equal(context.organizationId, "org-b");
+    assert.equal(context.organizationRole, "USER");
+  });
+
+  it("respects explicit organizationId candidate over autoSelectDefault", async () => {
+    repo.memberships.push({ id: "m-b-user", userId: "user-a", organizationId: "org-b", role: "USER" });
+    const context = await resolveAuthorizationContext(
+      { organizationId: "org-b", autoSelectDefault: true },
+      { getSession: sessionFor("user-a", null), authorizationRepository: repo },
+    );
+    assert.equal(context.organizationId, "org-b");
+    assert.equal(context.organizationRole, "USER");
+  });
 });
 
 describe("Authorization guards", () => {

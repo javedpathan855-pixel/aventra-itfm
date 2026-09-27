@@ -3,6 +3,7 @@ export * from "./dashboard-header";
 export * from "./dashboard-sidebar";
 export * from "./dashboard-mobile-nav";
 export * from "./dashboard-nav-item";
+export * from "./dashboard-nav-group";
 export * from "./dashboard-organization-switcher";
 export * from "./dashboard-user-menu";
 export * from "./dashboard-notification-bell";

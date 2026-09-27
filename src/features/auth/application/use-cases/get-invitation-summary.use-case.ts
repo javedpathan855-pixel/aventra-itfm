@@ -18,14 +18,20 @@ const invitationSummarySchema = z.object({
 interface InvitationSummaryResult {
   organizationName: string;
   role: string;
+  email: string;
   expiresAt: Date | null;
 }
 
 const INVALID_MESSAGE = "This invitation is invalid or has expired.";
 
+interface GetInvitationSummaryDeps {
+  authorizationRepository: AuthorizationDeps["authorizationRepository"];
+  getSession?: AuthorizationDeps["getSession"];
+}
+
 const executeGetInvitationSummary = async (
   rawInput: unknown,
-  deps: AuthorizationDeps,
+  deps: GetInvitationSummaryDeps,
 ): Promise<InvitationSummaryResult> => {
   const parsed = invitationSummarySchema.safeParse(rawInput);
   if (!parsed.success) {
@@ -33,12 +39,6 @@ const executeGetInvitationSummary = async (
   }
 
   try {
-    // Authentication only: the preview is scoped by token possession, not
-    // by the session's active organization.
-    const session = await deps.getSession();
-    if (!session) {
-      throw new AppError("UNAUTHENTICATED");
-    }
     const invitation = await deps.authorizationRepository.findInvitationByToken(
       parsed.data.token,
     );
@@ -57,6 +57,7 @@ const executeGetInvitationSummary = async (
     return {
       organizationName: organization.name,
       role: invitation.role,
+      email: invitation.email,
       expiresAt: invitation.expiresAt,
     };
   } catch (error) {
